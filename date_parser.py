@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 import datetime
+import calendar
 from typing import NamedTuple
 
 
@@ -44,6 +45,7 @@ class DatedShift(NamedTuple):
     day:        str   # "Monday" … "Sunday"
     start_time: str   # "HH:MM" 24-hour
     end_time:   str   # "HH:MM" 24-hour
+    rate:       float = 0.0  # hourly rate if specified inline, else 0
 
 
 class DateParseResult:
@@ -56,6 +58,41 @@ class DateParseResult:
         self.errors:   list[str]        = []
         self.warnings: list[str]        = []
         self.anchor:   str              = ""      # detected date / week / month string
+
+
+# ── Month-name lookup table ───────────────────────────────────────────────────
+
+_MONTH_IDX: dict[str, int] = {}
+for _i, _mn in enumerate(calendar.month_name):
+    if _mn:
+        _MONTH_IDX[_mn.lower()]      = _i   # "january" → 1
+        _MONTH_IDX[_mn[:3].lower()]  = _i   # "jan" → 1
+
+def _parse_natural_date(text: str) -> datetime.date | None:
+    """
+    Parse natural-language dates like:
+      "Thursday, June 18"
+      "Thursday, June 18, 2026"
+      "June 18"
+      "June 18, 2026"
+    Returns a datetime.date or None.
+    """
+    text = text.strip().rstrip(".,")
+    # Strip leading weekday
+    text = re.sub(r"^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday),?\s*",
+                  "", text, flags=re.IGNORECASE)
+    m = re.match(r"^(\w+)\s+(\d{1,2})(?:,?\s*(\d{4}))?$", text.strip())
+    if not m:
+        return None
+    month_str, day_str, year_str = m.groups()
+    month = _MONTH_IDX.get(month_str.lower())
+    if not month:
+        return None
+    year = int(year_str) if year_str else datetime.date.today().year
+    try:
+        return datetime.date(year, month, int(day_str))
+    except ValueError:
+        return None
 
 
 # ── Day-name lookup table ─────────────────────────────────────────────────────
@@ -105,45 +142,82 @@ def _norm_hour(raw: str) -> int:
     return h
 
 
+_AMPM_RE = re.compile(r"^(\d{1,2}(?::\d{2})?)\s*([AaPp][Mm])$")
+
+
 def _parse_time_tok(raw: str) -> str:
-    """Parse '9', '9:30', '14' → 'HH:MM'. Raises ValueError on bad input."""
+    """
+    Parse a time token → 'HH:MM' (24-hour).
+    Handles: '9', '9:30', '14', '9:00 AM', '1:00 PM', '9AM', '9 pm'.
+    """
     raw = raw.strip()
+    m = _AMPM_RE.match(raw)
+    if m:
+        time_part, ampm = m.groups()
+        if ":" in time_part:
+            hs, ms = time_part.split(":", 1)
+            h, mn = int(hs), int(ms)
+        else:
+            h, mn = int(time_part), 0
+        if ampm.lower() == "pm" and h != 12:
+            h += 12
+        elif ampm.lower() == "am" and h == 12:
+            h = 0
+        if h > 23 or mn > 59:
+            raise ValueError(f"Invalid time: {raw!r}")
+        return f"{h:02d}:{mn:02d}"
+    # No AM/PM — use heuristic (1-7 → PM)
     if ":" in raw:
         hs, ms = raw.split(":", 1)
-        h, m = _norm_hour(hs), int(ms)
+        h, mn = _norm_hour(hs), int(ms)
     else:
-        h, m = _norm_hour(raw), 0
-    if h > 23 or m > 59:
+        h, mn = _norm_hour(raw), 0
+    if h > 23 or mn > 59:
         raise ValueError(f"Invalid time: {raw!r}")
-    return f"{h:02d}:{m:02d}"
+    return f"{h:02d}:{mn:02d}"
+
+
+def _has_ampm(raw: str) -> bool:
+    return bool(_AMPM_RE.match(raw.strip()))
 
 
 def _parse_pair(rs: str, re_s: str) -> tuple[str, str]:
     """
-    Parse a start–end pair, handling the overnight edge case.
-    Evening start (≥17:00) + small raw end (1–7) → end is AM.
+    Parse a start–end pair, handling AM/PM and overnight shifts.
+    If explicit AM/PM is present, trust it. Otherwise apply heuristic.
     """
     start = _parse_time_tok(rs)
-    sh = int(start.split(":")[0])
-    reh = int(re_s.split(":")[0]) if ":" in re_s else int(re_s)
-
-    if sh >= 17 and 1 <= reh <= 7:
-        # Night shift: keep end as AM, bypass the PM-rule
-        if ":" in re_s:
-            eh, em = re_s.split(":", 1)
-            end = f"{int(eh):02d}:{int(em):02d}"
-        else:
-            end = f"{reh:02d}:00"
-    else:
+    if _has_ampm(re_s):
         end = _parse_time_tok(re_s)
-
+    else:
+        sh  = int(start.split(":")[0])
+        reh_raw = re_s.strip().split(":")[0]
+        reh = int(reh_raw) if reh_raw.isdigit() else 0
+        if sh >= 17 and 1 <= reh <= 7:
+            if ":" in re_s:
+                eh, em = re_s.split(":", 1)
+                end = f"{int(eh):02d}:{int(em):02d}"
+            else:
+                end = f"{reh:02d}:00"
+        else:
+            end = _parse_time_tok(re_s)
     return start, end
 
 
 # ── Regexes ───────────────────────────────────────────────────────────────────
 
-_TIME_P = r"\d{1,2}(?::\d{2})?"
-_RANGE_RE  = re.compile(rf"({_TIME_P})\s*[-–]\s*({_TIME_P})")
+_TIME_P   = r"\d{1,2}(?::\d{2})?(?:\s*[AaPp][Mm])?"
+_RANGE_RE = re.compile(rf"({_TIME_P})\s*[-–]\s*({_TIME_P})")
+
+# Inline rate: "@ $12.50"  "@ 12.50"  "@ $12/hr"  "@12.50"
+_RATE_RE  = re.compile(r"@\s*\$?(\d+(?:\.\d+)?)\s*(?:/hr?)?", re.IGNORECASE)
+
+def _extract_rate(line: str) -> tuple[str, float]:
+    """Strip inline rate annotation from a line. Returns (clean_line, rate)."""
+    m = _RATE_RE.search(line)
+    if m:
+        return line[:m.start()].rstrip() + line[m.end():], float(m.group(1))
+    return line, 0.0
 
 _DAY_ALTS = (
     "monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
@@ -158,8 +232,9 @@ _DATE_HDR_RE  = re.compile(r"^date\s*:?\s*(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECAS
 _WEEK_HDR_RE  = re.compile(r"^week\s*:?\s*(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECASE)
 _MONTH_HDR_RE = re.compile(r"^month\s*:?\s*(\d{4}-\d{2})\s*$", re.IGNORECASE)
 
-# "Job name: rest of line"
-_JOB_COLON_RE = re.compile(r"^([^:]+):\s*(.+)$")
+# "Job name: rest of line"  OR  "Job name — rest of line" (em dash)
+_JOB_COLON_RE  = re.compile(r"^([^:]+):\s*(.+)$")
+_JOB_EMDASH_RE = re.compile(r"^([^—]+?)\s*—\s*(.+)$")
 
 
 # ── Mode detection ────────────────────────────────────────────────────────────
@@ -182,6 +257,10 @@ def _detect_mode(lines: list[str]) -> tuple[str, str, list[str]]:
         m = _MONTH_HDR_RE.match(line)
         if m:
             return "monthly", m.group(1), lines[i + 1:]
+        # Natural language date: "Thursday, June 18" or "June 18, 2026"
+        nat = _parse_natural_date(line)
+        if nat:
+            return "daily", nat.isoformat(), lines[i + 1:]
         # No recognized header — default to weekly
         return "weekly", "", lines[i:]
     return "weekly", "", []
@@ -212,7 +291,12 @@ def _parse_daily(
         if not line:
             continue
 
-        m = _JOB_COLON_RE.match(line)
+        # Strip inline rate before any other parsing ("@ $12.50")
+        line, inline_rate = _extract_rate(line)
+        line = line.strip()
+
+        # Try em dash first (avoids splitting on colon inside time like "9:00")
+        m = (_JOB_EMDASH_RE.match(line) if "—" in line else None) or _JOB_COLON_RE.match(line)
         if m:
             job_raw, rest = m.group(1).strip(), m.group(2).strip()
         else:
@@ -241,6 +325,7 @@ def _parse_daily(
                     day=day_name,
                     start_time=start,
                     end_time=end,
+                    rate=inline_rate,
                 ))
             except ValueError as exc:
                 result.errors.append(f"{job_raw}: {exc}")

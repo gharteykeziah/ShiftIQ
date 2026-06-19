@@ -4,6 +4,8 @@ financial_state.py — Central state manager for the Financial Reality Engine.
 Owns all financial data (jobs, expenses, balance) and all calculations.
 InsightEngine reads from this — it does not duplicate any logic here.
 """
+from __future__ import annotations
+
 
 import logging
 import database as db

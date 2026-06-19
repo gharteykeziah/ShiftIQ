@@ -17,6 +17,8 @@ Public API
     parse_iso(s)                        → datetime.date | None
     weeks_for_events(events)            → sorted list of week-start dates
 """
+from __future__ import annotations
+
 import datetime
 
 # ── Constants ─────────────────────────────────────────────────────────────────

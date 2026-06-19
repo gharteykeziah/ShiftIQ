@@ -252,7 +252,7 @@ class AnalyticsPage(tk.Frame):
                     row = tk.Frame(ec, bg=theme.SIDEBAR,
                                    highlightbackground=theme.BORDER, highlightthickness=1)
                     row.pack(fill="x", pady=1)
-                    medal = ["🥇", "🥈", "🥉"][rank - 1] if rank <= 3 else f"#{rank}"
+                    medal = ["[1st]", "[2nd]", "[3rd]"][rank - 1] if rank <= 3 else f"#{rank}"
                     tk.Label(row, text=f"{medal}  {job_eff.name}",
                              font=("Inter", 10, "bold"),
                              fg=theme.TEXT, bg=theme.SIDEBAR,

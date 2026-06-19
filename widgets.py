@@ -4,6 +4,7 @@ widgets.py — Shared UI primitives for the Financial Reality Engine.
 Every helper registers its widgets with ThemeManager so a dark/light-mode
 toggle can reconfigure them in place without destroying any pages.
 """
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -42,6 +43,20 @@ def get_int(entry_widget: tk.Entry, field_name: str) -> int:
 class ScrollFrame(tk.Frame):
     """A vertically scrollable container. Uses theme colors at construction time."""
 
+    _active = None  # which canvas is currently under the cursor
+
+    def _contains(self, widget) -> bool:
+        """Return True if widget is self or a descendant of self."""
+        try:
+            w = widget
+            while w is not None:
+                if w is self:
+                    return True
+                w = w.master
+        except Exception:
+            pass
+        return False
+
     def __init__(self, parent, **kw):
         super().__init__(parent, bg=kw.pop("bg", theme.BG))
         _T(self, bg=lambda: theme.BG)
@@ -52,17 +67,48 @@ class ScrollFrame(tk.Frame):
         _T(canvas,    bg=lambda: theme.BG)
         _T(self.inner, bg=lambda: theme.BG)
 
-        self.inner.bind("<Configure>",
-                        lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        _win = canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        # Keep inner frame width in sync with the canvas so fill="x" works.
+        canvas.bind("<Configure>",
+                    lambda e: canvas.itemconfig(_win, width=e.width))
         canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
-        canvas.bind("<Enter>",
-                    lambda e: canvas.bind_all(
-                        "<MouseWheel>",
-                        lambda ev: canvas.yview_scroll(-1 * (ev.delta // 120), "units")))
-        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+        self.inner.bind("<Configure>",
+                        lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        # ── Scroll binding ────────────────────────────────────────────────────
+        # Strategy: use a single global bind_all on the root window.
+        # Track which canvas is "active" (cursor inside this ScrollFrame).
+        # <Leave> checks actual pixel bounds so moving to a child widget
+        # inside the frame does NOT deactivate scrolling.
+
+        def _on_scroll(ev):
+            if ScrollFrame._active is not canvas:
+                return
+            if sys.platform == "darwin":
+                canvas.yview_scroll(-1 * ev.delta, "units")
+            else:
+                delta = ev.delta // 120 or (1 if ev.delta > 0 else -1)
+                canvas.yview_scroll(-1 * delta, "units")
+
+        def _enter(_ev):
+            ScrollFrame._active = canvas
+            # Register our handler globally (replaces any previous ScrollFrame's)
+            self.bind_all("<MouseWheel>", _on_scroll)
+
+        def _leave(ev):
+            # Only deactivate if cursor truly left this frame's bounding box
+            rx, ry = ev.x_root - self.winfo_rootx(), ev.y_root - self.winfo_rooty()
+            if rx < 0 or ry < 0 or rx >= self.winfo_width() or ry >= self.winfo_height():
+                if ScrollFrame._active is canvas:
+                    ScrollFrame._active = None
+
+        self.bind("<Enter>", _enter)
+        self.bind("<Leave>", _leave)
+        # Also activate when cursor enters any child widget inside the frame
+        self.bind_all("<Enter>", lambda ev: _enter(ev) if self._contains(ev.widget) else None)
 
 
 # ── TabBar ────────────────────────────────────────────────────────────────────

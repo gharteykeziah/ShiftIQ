@@ -4,6 +4,8 @@ database.py — SQLite persistence for the Financial Reality Engine.
 Uses context managers (with sqlite3.connect(...) as conn) throughout
 so connections are always closed safely, even if an error occurs.
 """
+from __future__ import annotations
+
 
 import sqlite3
 import os

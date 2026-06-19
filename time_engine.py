@@ -3,6 +3,8 @@ time_engine.py — Scheduling analysis algorithms for the Time & Income Planner.
 
 All functions operate on lists of ScheduleEvent objects. No tkinter code here.
 """
+from __future__ import annotations
+
 from schedule_event import ScheduleEvent, DAYS, to_minutes, from_minutes, fmt_time
 
 

@@ -8,6 +8,8 @@ Tabs:
     4. Free Time    — free-block analysis + opportunity cost
     5. Income       — work hours & income summary
 """
+from __future__ import annotations
+
 import tkinter as tk
 from tkinter import ttk
 
@@ -96,10 +98,42 @@ class _TimePicker(tk.Frame):
 
 
 # ── Main page ─────────────────────────────────────────────────────────────────
+def _recategorize_existing_events() -> None:
+    """
+    One-time cleanup: fix events that were imported as 'Work' before the
+    category-detection logic existed.  An event is reclassified away from Work
+    only if it has no hourly rate AND its name matches a non-work keyword.
+    Events with a rate are always left as Work.
+    """
+    def _infer(name: str, rate: float) -> str:
+        if rate > 0:
+            return "Work"
+        t = name.lower()
+        if any(w in t for w in ["class", "lecture", "lab", "seminar", "course"]):
+            return "Class"
+        if any(w in t for w in ["study", "homework", "hw", "review", "tutoring",
+                                  "session", "calculus", "algebra", "biology",
+                                  "chemistry", "physics", "english", "history", "writing"]):
+            return "Study"
+        if any(w in t for w in ["meeting", "club", "group", "committee", "board", "org"]):
+            return "Meeting"
+        if any(w in t for w in ["gym", "workout", "church", "appointment", "doctor",
+                                  "dentist", "hair", "lunch", "dinner", "break", "personal"]):
+            return "Personal"
+        return "Work"   # unknown with no rate → keep as Work (user can edit)
+
+    for ev in db.get_events():
+        if ev.category == "Work":
+            correct = _infer(ev.title, ev.hourly_rate or 0.0)
+            if correct != "Work":
+                db.update_event(ev.id, category=correct)
+
+
 class SchedulePage(tk.Frame):
     def __init__(self, parent, app):
         super().__init__(parent, bg=theme.BG)
         self._app = app
+        _recategorize_existing_events()   # fix legacy mis-labeled events
         # Which week the Week View is currently showing (Monday date)
         self._view_week: "week_engine.datetime.date" = week_engine.get_week_start()
 
@@ -270,16 +304,6 @@ class SchedulePage(tk.Frame):
                             + ("  +1 day" if ev.end_time < ev.start_time else ""))
                 tk.Label(info, text=time_str,
                          font=F_SMALL, fg=theme.MUTED, bg=theme.SIDEBAR).pack(anchor="w")
-                if ev.category == "Work":
-                    shift_earn = round(hrs * ev.hourly_rate, 2)
-                    if ev.hourly_rate > 0:
-                        earn_str = f"${ev.hourly_rate:.2f}/hr  →  ${shift_earn:.2f} this shift"
-                        tk.Label(info, text=earn_str,
-                                 font=F_SMALL, fg=color, bg=theme.SIDEBAR).pack(anchor="w")
-                    else:
-                        tk.Label(info, text="Rate not set",
-                                 font=F_SMALL, fg=theme.MUTED,
-                                 bg=theme.SIDEBAR).pack(anchor="w")
                 if ev.notes and ev.notes not in ("", "Imported"):
                     tk.Label(info, text=ev.notes,
                              font=("Inter", 9, "italic"), fg=theme.MUTED,
@@ -635,16 +659,6 @@ class SchedulePage(tk.Frame):
                          font=F_SMALL, fg=theme.MUTED, bg=theme.SIDEBAR).pack(anchor="w")
 
                 # Rate + shift earnings — shown for ALL Work events
-                if ev.category == "Work":
-                    shift_earn = round(hrs * ev.hourly_rate, 2)
-                    if ev.hourly_rate > 0:
-                        earn_str = f"${ev.hourly_rate:.2f}/hr  →  ${shift_earn:.2f} this shift"
-                    else:
-                        earn_str = "Rate not set — go to Add Event to update"
-                    tk.Label(info, text=earn_str,
-                             font=F_SMALL, fg=color if ev.hourly_rate > 0 else theme.MUTED,
-                             bg=theme.SIDEBAR).pack(anchor="w")
-
                 btns = tk.Frame(row, bg=theme.SIDEBAR)
                 btns.pack(side="right", padx=8)
 
@@ -733,13 +747,13 @@ class SchedulePage(tk.Frame):
         def _toggle_potential():
             if show_potential_var.get():
                 potential_btn.config(
-                    text="💡 Earning Potential  ON",
+                    text="* Earning Potential  ON",
                     fg=theme.ACCENT,
                     bg=theme.ACCENT_L,
                 )
             else:
                 potential_btn.config(
-                    text="💡 Earning Potential  OFF",
+                    text="* Earning Potential  OFF",
                     fg=theme.MUTED,
                     bg=theme.BG,
                 )
@@ -747,7 +761,7 @@ class SchedulePage(tk.Frame):
 
         potential_btn = tk.Button(
             ctrl_row,
-            text="💡 Earning Potential  OFF",
+            text="* Earning Potential  OFF",
             font=F_SMALL,
             fg=theme.MUTED,
             bg=theme.BG,
@@ -829,7 +843,7 @@ class SchedulePage(tk.Frame):
                         opp_row = tk.Frame(c, bg=theme.ACCENT_L)
                         opp_row.pack(fill="x", padx=0, pady=(4, 0))
                         tk.Label(opp_row,
-                                 text="  💡 Earning potential in largest block:",
+                                 text="  * Earning potential in largest block:",
                                  font=F_SMALL, fg=theme.ACCENT, bg=theme.ACCENT_L,
                                  padx=14, pady=4).pack(anchor="w")
                         for o in opp[:3]:
@@ -1110,10 +1124,11 @@ class SchedulePage(tk.Frame):
                      font=F_BODY, fg=theme.DANGER, bg=theme.BG).pack(pady=40)
             return
 
-        sf    = ScrollFrame(self._body)
-        sf.pack(fill="both", expand=True)
-        inner = sf.inner
-        inner.configure(padx=36, pady=20)
+        # Plain frame — no canvas/ScrollFrame so fill="x" always works reliably.
+        outer = tk.Frame(self._body, bg=theme.BG)
+        outer.pack(fill="both", expand=True)
+        inner = tk.Frame(outer, bg=theme.BG)
+        inner.pack(fill="x", padx=36, pady=20)
 
         # ── Header ────────────────────────────────────────────────────────
         tk.Label(inner, text="Import Schedule", font=F_H2,
@@ -1160,13 +1175,23 @@ class SchedulePage(tk.Frame):
                       _refresh_week_label()
                   )).pack(side="left")
 
-        # ── Format hint ───────────────────────────────────────────────────
+        # ── Format hint (collapsible) ─────────────────────────────────────
         hint_box = tk.Frame(inner, bg=theme.ACCENT_L,
                             highlightbackground=theme.BORDER, highlightthickness=1)
         hint_box.pack(fill="x", pady=(0, 16))
-        tk.Label(hint_box, text="Supported formats (auto-detected)",
-                 font=("Inter", 10, "bold"), fg=theme.ACCENT,
-                 bg=theme.ACCENT_L, padx=14, pady=8).pack(anchor="w")
+
+        _hint_open = [False]   # collapsed by default
+
+        hint_header_row = tk.Frame(hint_box, bg=theme.ACCENT_L, cursor="hand2")
+        hint_header_row.pack(fill="x")
+
+        toggle_lbl = tk.Label(hint_header_row, text="▶  Supported formats (auto-detected)  — click to expand",
+                              font=("Inter", 10, "bold"), fg=theme.ACCENT,
+                              bg=theme.ACCENT_L, padx=14, pady=8, anchor="w")
+        toggle_lbl.pack(fill="x")
+
+        # Build the detail section (hidden initially)
+        hint_detail = tk.Frame(hint_box, bg=theme.ACCENT_L)
 
         format_sections = [
             ("Weekly (default — uses the week selected above):",
@@ -1182,23 +1207,44 @@ class SchedulePage(tk.Frame):
               "Admissions: 2026-06-01 9-12  2026-06-03 2-5",
               "Library: 2026-06-07 1-4  2026-06-14 1-4"]),
         ]
-        for section_title, lines in format_sections:
-            tk.Label(hint_box, text=f"  {section_title}",
+        for section_title, section_lines in format_sections:
+            tk.Label(hint_detail, text=f"  {section_title}",
                      font=("Inter", 9, "bold"), fg=theme.TEXT,
-                     bg=theme.ACCENT_L, padx=14, pady=(4, 0)).pack(anchor="w")
-            for ln in lines:
-                tk.Label(hint_box, text=f"      {ln}",
+                     bg=theme.ACCENT_L, padx=14, pady=4).pack(anchor="w")
+            for ln in section_lines:
+                tk.Label(hint_detail, text=f"      {ln}",
                          font=("Courier", 9), fg=theme.TEXT,
                          bg=theme.ACCENT_L, padx=14, pady=1).pack(anchor="w")
-        tk.Label(hint_box,
+        tk.Label(hint_detail,
                  text="  Night shifts: 22-6   |   Times: 9-12 or 9:30-12:00",
                  font=F_SMALL, fg=theme.MUTED,
                  bg=theme.ACCENT_L, padx=14, pady=6).pack(anchor="w")
 
+        def _toggle_hint(_event=None):
+            if _hint_open[0]:
+                hint_detail.pack_forget()
+                toggle_lbl.config(text="▶  Supported formats (auto-detected)  — click to expand")
+            else:
+                hint_detail.pack(fill="x")
+                toggle_lbl.config(text="▼  Supported formats (auto-detected)  — click to collapse")
+            _hint_open[0] = not _hint_open[0]
+
+        hint_header_row.bind("<Button-1>", _toggle_hint)
+        toggle_lbl.bind("<Button-1>", _toggle_hint)
+
         # ── Text area ─────────────────────────────────────────────────────
-        tk.Label(inner, text="Paste your schedule here:",
+        paste_row = tk.Frame(inner, bg=theme.BG)
+        paste_row.pack(fill="x", pady=(0, 4))
+        tk.Label(paste_row, text="Paste your schedule here:",
                  font=("Inter", 11, "bold"), fg=theme.TEXT,
-                 bg=theme.BG).pack(anchor="w", pady=(0, 4))
+                 bg=theme.BG).pack(side="left")
+        tk.Label(paste_row, text="  or  ", font=F_SMALL,
+                 fg=theme.MUTED, bg=theme.BG).pack(side="left")
+        tk.Button(paste_row, text="Browse file...",
+                  font=F_SMALL, fg=theme.ACCENT, bg=theme.BG,
+                  activeforeground=theme.ACCENT, activebackground=theme.BG,
+                  relief="flat", cursor="hand2",
+                  command=lambda: _load_file()).pack(side="left")
 
         text_frame = tk.Frame(inner, bg=theme.BORDER, padx=1, pady=1)
         text_frame.pack(fill="x", pady=(0, 12))
@@ -1219,6 +1265,30 @@ class SchedulePage(tk.Frame):
 
         result_frame = tk.Frame(inner, bg=theme.BG)
         result_frame.pack(fill="x")
+
+        def _load_file():
+            from tkinter import filedialog
+            path = filedialog.askopenfilename(
+                title="Open schedule file (txt or csv)",
+                filetypes=[
+                    ("Text files", "*.txt"),
+                    ("CSV files",  "*.csv"),
+                    ("All files",  "*.*"),
+                ],
+            )
+            if not path:
+                return
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                    content = fh.read()
+                txt.delete("1.0", "end")
+                txt.insert("1.0", content)
+            except OSError as exc:
+                for w in result_frame.winfo_children():
+                    w.destroy()
+                tk.Label(result_frame,
+                         text=f"⚠  Could not open file: {exc}",
+                         font=F_BODY, fg=theme.DANGER, bg=theme.BG).pack(anchor="w")
 
         def _do_import():
             raw = txt.get("1.0", "end").strip()
@@ -1295,11 +1365,37 @@ class SchedulePage(tk.Frame):
                 # date_parser already resolved the concrete ISO date
                 shift_date_str = ps.date   # "YYYY-MM-DD" or ""
 
-                # Look up any existing rate for this canonical name
-                known_rate = self._get_known_rate(canonical_name) or 0.0
+                # Rate priority: inline rate in text > rate already in DB
+                inline_rate = getattr(ps, "rate", 0.0) or 0.0
+                db_rate     = self._get_known_rate(canonical_name) or 0.0
+                known_rate  = inline_rate if inline_rate > 0 else db_rate
+
+                # If an inline rate was given, save it to the DB immediately
+                # so future imports / manual adds pick it up automatically.
+                if inline_rate > 0:
+                    db.update_events_rate(canonical_name, inline_rate)
+
+                # Infer category:
+                #   - inline rate OR existing DB rate → Work (it's a job)
+                #   - otherwise keyword-detect the event type
+                def _infer_cat(name: str, rate: float) -> str:
+                    if rate > 0:
+                        return "Work"
+                    t = name.lower()
+                    if any(w in t for w in ["class", "lecture", "lab", "seminar", "course", "101", "201", "301"]):
+                        return "Class"
+                    if any(w in t for w in ["study", "homework", "hw", "review", "tutoring", "session", "calculus", "algebra", "biology", "chemistry", "physics", "english", "history", "writing"]):
+                        return "Study"
+                    if any(w in t for w in ["meeting", "club", "group", "committee", "board", "org", "organization"]):
+                        return "Meeting"
+                    if any(w in t for w in ["gym", "workout", "personal", "church", "appointment", "doctor", "dentist", "hair", "lunch", "dinner", "break"]):
+                        return "Personal"
+                    return "Personal"
+
+                inferred_category = _infer_cat(canonical_name, known_rate)
                 ev = _SE(
                     title=canonical_name,
-                    category="Work",
+                    category=inferred_category,
                     day=ps.day,
                     start_time=ps.start_time,
                     end_time=ps.end_time,
@@ -1325,13 +1421,32 @@ class SchedulePage(tk.Frame):
                         for e in existing_day
                     )
                 if is_dup:
+                    # Fix category on the existing record if it was mis-labeled
+                    existing_evs = (
+                        db.get_events_for_date(shift_date_str)
+                        if shift_date_str
+                        else db.get_events(ps.day)
+                    )
+                    for existing_ev in existing_evs:
+                        if (
+                            _canon(existing_ev.title) == _canon(canonical_name)
+                            and existing_ev.start_time == ps.start_time
+                            and existing_ev.end_time == ps.end_time
+                            and existing_ev.category != inferred_category
+                        ):
+                            db.update_event(existing_ev.id, category=inferred_category)
                     skipped.append(ps)
                     continue
                 db.add_event(ev)
                 saved_shifts.append({"job_name": canonical_name, "day": ps.day,
                                      "start_time": ps.start_time,
                                      "end_time": ps.end_time,
-                                     "shift_date": shift_date_str})
+                                     "shift_date": shift_date_str,
+                                     "category": inferred_category})
+
+            # ── Clear the text box on successful import ───────────────────────
+            if saved_shifts:
+                txt.delete("1.0", "end")
 
             # ── Show saved summary ────────────────────────────────────────────
             if saved_shifts:
@@ -1367,16 +1482,20 @@ class SchedulePage(tk.Frame):
                          font=F_BODY, fg=theme.MUTED, bg=theme.BG).pack(anchor="w")
                 return
 
-            # ── Rate prompt for jobs with no rate ─────────────────────────
+            # ── Rate prompt for Work jobs with no rate ────────────────────
             if saved_shifts:
                 seen_canon: dict[str, str] = {}
                 for s in saved_shifts:
                     key = _canon(s["job_name"])
                     if key not in seen_canon:
-                        seen_canon[key] = s["job_name"]
+                        seen_canon[key] = s  # store full dict to access category
 
                 jobs_needing_rate: list[str] = []
-                for key, jname in seen_canon.items():
+                for key, s_data in seen_canon.items():
+                    jname = s_data["job_name"]
+                    # Only Work events participate in income / need a rate
+                    if s_data.get("category", "Work") != "Work":
+                        continue
                     known_rate = self._get_known_rate(jname)
                     if known_rate:
                         db.update_events_rate(jname, known_rate)

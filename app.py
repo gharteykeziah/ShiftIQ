@@ -122,6 +122,28 @@ class App(tk.Tk):
         # Sync all Work events → Data jobs after window is ready
         self.after(200, self._sync_schedule_jobs)
 
+        # Global touchpad / mouse-wheel scroll handler.
+        # Walks up from the widget under the cursor to find the nearest Canvas
+        # and scrolls it.  This works on macOS trackpads where per-widget
+        # bindings are unreliable.
+        def _global_scroll(event):
+            import sys
+            widget = event.widget
+            while widget:
+                if widget.__class__.__name__ == "Canvas":
+                    try:
+                        if sys.platform == "darwin":
+                            widget.yview_scroll(int(-1 * event.delta), "units")
+                        else:
+                            delta = event.delta // 120 or (1 if event.delta > 0 else -1)
+                            widget.yview_scroll(int(-1 * delta), "units")
+                    except Exception:
+                        pass
+                    return
+                widget = getattr(widget, "master", None)
+
+        self.bind_all("<MouseWheel>", _global_scroll)
+
     def _sync_schedule_jobs(self) -> None:
         """
         On startup, sync all scheduled Work events → Data jobs.
@@ -164,52 +186,60 @@ class App(tk.Tk):
             ("goals",           "◎  Goals"),
             ("settings",        "⚙  Settings"),
         ]
+        # Use Labels instead of Buttons — Labels always respect fg/bg on macOS.
         for key, label in nav:
-            ctr = tk.Frame(self.sidebar_frame, bg=theme.SIDEBAR)
+            ctr = tk.Frame(self.sidebar_frame, bg=theme.SIDEBAR, cursor="hand2")
             ctr.pack(fill="x", pady=1)
             ind = tk.Frame(ctr, bg=theme.SIDEBAR, width=4)
             ind.pack(side="left", fill="y")
-            btn = tk.Button(
+            lbl = tk.Label(
                 ctr, text=f"  {label}",
                 font=F_NAV, fg=theme.TEXT, bg=theme.SIDEBAR,
-                activebackground=theme.NAV_SEL, activeforeground=theme.ACCENT,
-                relief="flat", anchor="w", pady=11, bd=0,
-                command=lambda k=key: self.show_page(k),
+                anchor="w", pady=11,
             )
-            btn.pack(side="left", fill="x", expand=True, padx=(4, 8))
-            btn.bind("<Enter>", lambda e, b=btn, c=ctr, i=ind: (
-                b.config(bg=theme.NAV_SEL, fg=theme.ACCENT)
-                if b.cget("fg") != theme.ACCENT else None,
-                c.config(bg=theme.NAV_SEL),
-                i.config(bg=theme.ACCENT),
-            ))
-            btn.bind("<Leave>", lambda e, b=btn, c=ctr, i=ind, k=key:
-                     self._restore_nav_item(k))
-            self._nav_items[key]      = btn
+            lbl.pack(side="left", fill="x", expand=True, padx=(4, 8))
+
+            def _enter(e, b=lbl, c=ctr, i=ind):
+                if b.cget("fg") != theme.ACCENT:
+                    b.config(bg=theme.NAV_SEL, fg=theme.ACCENT)
+                c.config(bg=theme.NAV_SEL)
+                i.config(bg=theme.ACCENT)
+
+            def _leave(e, k=key):
+                self._restore_nav_item(k)
+
+            def _click(e, k=key):
+                self.show_page(k)
+
+            for w in (lbl, ctr, ind):
+                w.bind("<Enter>", _enter)
+                w.bind("<Leave>", _leave)
+                w.bind("<Button-1>", _click)
+
+            self._nav_items[key]      = lbl
             self._nav_containers[key] = (ctr, ind)
 
-        # Bottom buttons
+        # Bottom action labels
         tk.Frame(self.sidebar_frame, bg=theme.BORDER, height=1).pack(fill="x", side="bottom")
         tk.Frame(self.sidebar_frame, bg=theme.SIDEBAR, height=4).pack(fill="x", side="bottom")
 
         dark_label = "  ☀  Light Mode" if theme.is_dark() else "  ☾  Dark Mode"
-        for lbl, fg_col, cmd in [
-            (dark_label,       theme.MUTED,  self._toggle_dark_mode),
-            ("  ⬆  Backup DB", theme.MUTED,  self._backup_db),
-            ("  ⬡  Export PDF", theme.ACCENT, self._export_pdf),
-            ("  ↓  Export CSV", theme.BLUE,
+        for txt, fg_col, cmd in [
+            (dark_label,        theme.MUTED,  self._toggle_dark_mode),
+            ("  Backup DB",     theme.MUTED,  self._backup_db),
+            ("  Export PDF",    theme.ACCENT, self._export_pdf),
+            ("  Export CSV",    theme.BLUE,
              lambda: _export_csv(self.state, self.insight_engine)),
         ]:
-            b = tk.Button(
-                self.sidebar_frame, text=lbl,
+            b = tk.Label(
+                self.sidebar_frame, text=txt,
                 font=("Inter", 10), fg=fg_col, bg=theme.SIDEBAR,
-                activebackground=theme.NAV_SEL, activeforeground=theme.ACCENT,
-                relief="flat", anchor="w", pady=9, bd=0,
-                command=cmd,
+                anchor="w", pady=9, cursor="hand2",
             )
             b.pack(fill="x", padx=6, side="bottom")
-            b.bind("<Enter>", lambda e, btn=b: btn.config(bg=theme.NAV_SEL))
-            b.bind("<Leave>", lambda e, btn=b: btn.config(bg=theme.SIDEBAR))
+            b.bind("<Enter>", lambda e, w=b: w.config(bg=theme.NAV_SEL))
+            b.bind("<Leave>", lambda e, w=b: w.config(bg=theme.SIDEBAR))
+            b.bind("<Button-1>", lambda e, c=cmd: c())
 
     def _restore_nav_item(self, key):
         """Revert hover state for one nav item (used on <Leave>)."""
@@ -264,16 +294,26 @@ class App(tk.Tk):
     # ── Theme toggle ──────────────────────────────────────────────────────
     def _toggle_dark_mode(self):
         apply_theme(not theme.is_dark())
+        # Update root and all top-level container backgrounds
         self.configure(bg=theme.BG)
+        self.sidebar_frame.configure(bg=theme.SIDEBAR)
+        self.content_area.configure(bg=theme.BG)
+        # Also update the 1px border divider between sidebar and content
+        for w in self.winfo_children():
+            if isinstance(w, tk.Frame) and w not in (
+                self.sidebar_frame, self.content_area
+            ):
+                w.configure(bg=theme.BORDER)
+        # Rebuild sidebar children with new theme colors
         for w in self.sidebar_frame.winfo_children():
             w.destroy()
         self._nav_items      = {}
         self._nav_containers = {}
         self._build_sidebar()
         self._set_active_nav(self._current_page)
+        # Rebuild current page
         for w in self.content_area.winfo_children():
             w.destroy()
-        self.content_area.configure(bg=theme.BG)
         self.show_page(self._current_page)
 
     # ── Sidebar actions ───────────────────────────────────────────────────

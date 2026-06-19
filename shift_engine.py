@@ -17,6 +17,8 @@ Three analysis modes (called separately by the user)
 
 No GUI. No notifications. Backend only.
 """
+from __future__ import annotations
+
 
 import sqlite3
 import os

@@ -197,7 +197,7 @@ class GoalsPage(tk.Frame):
             tip       = ("Focus on the 3-month target first. Once reached, "
                          "keep contributing until you hit 6 months.")
             tip_color = theme.DANGER
-        tk.Label(c, text=f"💡  {tip}", font=F_SMALL, fg=tip_color, bg=theme.BG,
+        tk.Label(c, text=f"*  {tip}", font=F_SMALL, fg=tip_color, bg=theme.BG,
                  wraplength=620, justify="left").pack(anchor="w", pady=(0, 4))
 
 
