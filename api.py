@@ -1,10 +1,10 @@
 """
-api.py — FastAPI service exposing the Financial Reality Engine over HTTP.
+api.py — FastAPI service exposing the ShiftIQ engine over HTTP.
 
 This is a thin transport layer only. It contains zero financial logic —
 every endpoint is a direct pass-through to the same engine modules the
-Tkinter desktop app uses (financial_state.py, simulation.py,
-schedule_analytics.py, optimizer.py, database.py). That is the same
+desktop app uses (financial_state.py, simulation.py,
+shift_analytics.py, optimizer.py, database.py). That is the same
 UI / business-logic separation the rest of the project enforces: the
 desktop app and this API are two different front ends on top of one
 unmodified engine.
@@ -33,12 +33,12 @@ from financial_state import FinancialState
 from insight_engine import InsightEngine
 from simulation import run_monte_carlo, simulate_whatif
 from optimizer import optimize_shift_selection, candidates_from_events
-import schedule_analytics as sa
+import shift_analytics as sa
 from model import Job, Expense
 from config import MONTE_CARLO_RUNS
 
 app = FastAPI(
-    title="Financial Reality Engine API",
+    title="ShiftIQ API",
     description="Schedule-driven financial simulation engine, exposed over HTTP.",
     version="1.1.0",
 )

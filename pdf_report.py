@@ -1,5 +1,5 @@
 """
-pdf_report.py — Generates a Financial Reality Engine PDF report using reportlab.
+pdf_report.py — Generates a ShiftIQ PDF report using reportlab.
 """
 
 import os
@@ -13,7 +13,7 @@ from reportlab.platypus import (
 )
 from config import APP_NAME, APP_VERSION, PROJECTION_WEEKS
 import database as db
-import schedule_analytics as sa
+import shift_analytics as sa
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 GREEN      = colors.HexColor("#2D6A4F")

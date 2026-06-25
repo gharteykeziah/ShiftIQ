@@ -155,7 +155,7 @@ class SchedulePage(tk.Frame):
         tb.bind_select(self._render)
         tb.activate("week")
 
-        # Sync all existing Work events to FRE Data on every page load
+        # Sync all existing Work events to ShiftIQ Data on every page load
         self.after(100, self._sync_all_work_to_state)
 
     def _render(self, key):
@@ -779,7 +779,7 @@ class SchedulePage(tk.Frame):
         free_frame = tk.Frame(inner, bg=theme.BG)
         free_frame.pack(fill="x")
 
-        # Opportunity cost: collect work job rates from FRE jobs
+        # Opportunity cost: collect work job rates from ShiftIQ jobs
         def _work_rates() -> list[tuple[str, float]]:
             from model import FREQUENCIES
             rates = []
@@ -932,19 +932,19 @@ class SchedulePage(tk.Frame):
                      font=("Inter", 11, "bold"), fg=theme.ACCENT,
                      bg=theme.ACCENT_L, width=14).pack(side="left")
 
-        # ── Cross-reference with FRE jobs ─────────────────────────────────
+        # ── Cross-reference with ShiftIQ jobs ─────────────────────────────────
         fre_income = self._app.state.total_income_per_week()
         if fre_income > 0:
             section_divider(inner)
-            tk.Label(inner, text="FRE vs Scheduled", font=F_H2,
+            tk.Label(inner, text="ShiftIQ vs Scheduled", font=F_H2,
                      fg=theme.TEXT, bg=theme.BG).pack(anchor="w", pady=(0, 6))
             tk.Label(inner,
-                     text="Comparing your entered job income (FRE) against what your "
+                     text="Comparing your entered job income (ShiftIQ) against what your "
                           "schedule actually shows this week.",
                      font=F_SMALL, fg=theme.MUTED, bg=theme.BG,
                      wraplength=640, justify="left").pack(anchor="w", pady=(0, 8))
             cc = card(inner)
-            kv_row(cc, "FRE Jobs (weekly estimate)",
+            kv_row(cc, "ShiftIQ Jobs (weekly estimate)",
                    f"${fre_income:,.2f}", theme.TEXT)
             kv_row(cc, "Scheduled Work Income",
                    f"${summary['total_income']:,.2f}", theme.ACCENT)
@@ -954,13 +954,13 @@ class SchedulePage(tk.Frame):
                    f"${diff:+,.2f}", diff_color)
             if diff < 0:
                 tk.Label(cc,
-                         text="  Your scheduled hours earn less than your FRE estimate. "
+                         text="  Your scheduled hours earn less than your ShiftIQ estimate. "
                               "You may need more shifts or a higher rate.",
                          font=F_SMALL, fg=theme.DANGER, bg=theme.SIDEBAR,
                          wraplength=600, padx=16, pady=(0, 8)).pack(anchor="w")
             else:
                 tk.Label(cc,
-                         text="  Your scheduled hours match or exceed your FRE income estimate.",
+                         text="  Your scheduled hours match or exceed your ShiftIQ income estimate.",
                          font=F_SMALL, fg=theme.ACCENT, bg=theme.SIDEBAR,
                          wraplength=600, padx=16, pady=(0, 8)).pack(anchor="w")
 
@@ -1013,12 +1013,12 @@ class SchedulePage(tk.Frame):
         return best_job if best_ratio >= 0.82 else None
 
     # ─────────────────────────────────────────────────────────────────────
-    # HELPER: Sync ALL Work events → FRE Data on page load
+    # HELPER: Sync ALL Work events → ShiftIQ Data on page load
     # ─────────────────────────────────────────────────────────────────────
     def _sync_all_work_to_state(self) -> None:
         """
         On Schedule page load, group ALL Work events by canonical name, then
-        sync one entry per unique job to FRE Data.  Deduplicates state.jobs
+        sync one entry per unique job to ShiftIQ Data.  Deduplicates state.jobs
         by canonical name first.
         """
         try:
@@ -1047,7 +1047,7 @@ class SchedulePage(tk.Frame):
             pass
 
     # ─────────────────────────────────────────────────────────────────────
-    # HELPER: Sync a Work event into FRE Data (jobs) if it doesn't exist
+    # HELPER: Sync a Work event into ShiftIQ Data (jobs) if it doesn't exist
     # ─────────────────────────────────────────────────────────────────────
     @staticmethod
     def _shift_hours(ev) -> float:
@@ -1064,11 +1064,11 @@ class SchedulePage(tk.Frame):
     def _sync_work_to_state(self, job_name: str, hourly_rate: float,
                              _unused: float = 0.0) -> None:
         """
-        Sync a Work job into FRE Data (income / analytics / forecasting).
+        Sync a Work job into ShiftIQ Data (income / analytics / forecasting).
 
         Reads ALL Work events for this job from the events table, sums the
         hours (overnight-aware), multiplies by rate, then creates or updates
-        the FRE Job entry.  Bypasses the >0 validation when rate is unknown
+        the ShiftIQ Job entry.  Bypasses the >0 validation when rate is unknown
         so the job still appears in Data with a $0 placeholder.
         """
         try:
@@ -1090,7 +1090,7 @@ class SchedulePage(tk.Frame):
 
             weekly_amount = round(hourly_rate * total_hours, 2)
 
-            # ── Create or update in FRE state (canonical lookup) ──────────
+            # ── Create or update in ShiftIQ state (canonical lookup) ──────────
             existing = next(
                 (j for j in self._app.state.jobs if _canon(j.name) == canon),
                 None

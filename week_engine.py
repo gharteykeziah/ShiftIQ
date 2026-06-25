@@ -1,5 +1,5 @@
 """
-week_engine.py — Week calculation helpers for the FRE Schedule system.
+week_engine.py — Week calculation helpers for the ShiftIQ Schedule system.
 
 All week logic lives here so the rest of the codebase stays clean.
 A "week" always starts on Monday (weekday index 0) and ends on Sunday.

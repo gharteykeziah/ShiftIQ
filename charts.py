@@ -1,5 +1,5 @@
 """
-charts.py — Matplotlib chart renderers for the Financial Reality Engine.
+charts.py — Matplotlib chart renderers for the ShiftIQ.
 
 Chart backgrounds and colors read from theme at render time so they
 automatically match the active light/dark palette.

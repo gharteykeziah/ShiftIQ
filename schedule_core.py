@@ -1,7 +1,7 @@
 """
 schedule_core.py
 ────────────────
-Financial Reality Engine — Schedule & Time Intelligence Module
+ShiftIQ — Schedule & Time Intelligence Module
 
 A production-style backend for students and part-time workers with
 variable weekly schedules. No GUI. No auto-switching. No clutter.
@@ -20,7 +20,7 @@ MODES (call separately — never combined automatically)
   FreeTimeMode    — free blocks only  (show_potential=True adds earning potential)
   OpportunityMode — full per-job earning breakdown for every free block
 
-  Income tracking belongs in the FRE Jobs/financial module, not here.
+  Income tracking belongs in the ShiftIQ Jobs/financial module, not here.
   This module is about TIME — when you work and when you're free.
 
 USAGE

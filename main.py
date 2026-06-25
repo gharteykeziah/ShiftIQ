@@ -1,5 +1,5 @@
 """
-main.py — Entry point for the Financial Reality Engine.
+main.py — Entry point for ShiftIQ.
 
 Wires up logging, initialises the database, and launches the App window.
 All application logic lives in:

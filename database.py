@@ -1,5 +1,5 @@
 """
-database.py — SQLite persistence for the Financial Reality Engine.
+database.py — SQLite persistence for the ShiftIQ.
 
 Uses context managers (with sqlite3.connect(...) as conn) throughout
 so connections are always closed safely, even if an error occurs.

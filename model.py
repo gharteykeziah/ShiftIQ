@@ -1,5 +1,5 @@
 """
-model.py — Data blueprints for the Financial Reality Engine.
+model.py — Data blueprints for the ShiftIQ.
 
 Job      — an income source (salary, hourly, gig, etc.)
 Expense  — a recurring cost (rent, food, transport, etc.)

@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def _export_csv(state, insight_engine):
     """Standalone CSV export — used by sidebar button."""
     import csv
-    import schedule_analytics as sa
+    import shift_analytics as sa
     from config import PROJECTION_WEEKS
     path = filedialog.asksaveasfilename(
         defaultextension=".csv",
@@ -37,7 +37,7 @@ def _export_csv(state, insight_engine):
         return
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["Financial Reality Engine — Export"])
+        writer.writerow(["ShiftIQ — Export"])
         writer.writerow([])
         writer.writerow(["SUMMARY"])
         writer.writerow(["Balance",         f"${state.current_balance():.2f}"])
@@ -113,11 +113,11 @@ class App(tk.Tk):
 
         self._nav_items      = {}
         self._nav_containers = {}
-        self._current_page   = "dashboard"
+        self._current_page   = "home"
 
         self._build_layout()
         self._build_sidebar()
-        self.show_page("dashboard")
+        self.show_page("home")
 
         # Sync all Work events → Data jobs after window is ready
         self.after(200, self._sync_schedule_jobs)
@@ -169,22 +169,22 @@ class App(tk.Tk):
         # Brand header
         brand = tk.Frame(self.sidebar_frame, bg=theme.ACCENT, pady=22)
         brand.pack(fill="x")
-        tk.Label(brand, text="FRE", font=("Inter", 22, "bold"),
+        tk.Label(brand, text="ShiftIQ", font=("Inter", 22, "bold"),
                  fg="white", bg=theme.ACCENT).pack(anchor="w", padx=20)
-        tk.Label(brand, text="Financial Reality Engine",
+        tk.Label(brand, text="Schedule-driven financial intelligence",
                  font=("Inter", 9), fg="#b2f0d0", bg=theme.ACCENT).pack(anchor="w", padx=20)
 
         tk.Frame(self.sidebar_frame, bg=theme.BORDER, height=1).pack(fill="x")
         tk.Frame(self.sidebar_frame, bg=theme.SIDEBAR, height=6).pack(fill="x")
 
+        # Collapsed to 3 items per FRE_MLP_Product_Strategy.md — Dashboard,
+        # Analytics, Forecasting, Goals, Data, and Settings all still exist
+        # and still work; they're one tap away via "More" instead of
+        # competing with Home and Schedule for sidebar space.
         nav = [
-            ("dashboard",       "⊞  Dashboard"),
-            ("schedule",        "◷  Schedule"),
-            ("data_management", "≡  Data"),
-            ("analytics",       "◈  Analytics"),
-            ("forecasting",     "⟳  Forecasting"),
-            ("goals",           "◎  Goals"),
-            ("settings",        "⚙  Settings"),
+            ("home",     "⌂  Home"),
+            ("schedule", "◷  Schedule"),
+            ("more",     "☰  More"),
         ]
         # Use Labels instead of Buttons — Labels always respect fg/bg on macOS.
         for key, label in nav:
@@ -251,7 +251,16 @@ class App(tk.Tk):
         ctr.config(bg=theme.SIDEBAR)
         ind.config(bg=theme.SIDEBAR)
 
+    # Pages reachable only via "More" — keep its nav item highlighted
+    # while any of these are on screen, instead of showing no selection.
+    _SECONDARY_PAGES = {
+        "dashboard", "data_management", "analytics",
+        "forecasting", "goals", "settings",
+    }
+
     def _set_active_nav(self, key):
+        if key in self._SECONDARY_PAGES:
+            key = "more"
         for k, btn in self._nav_items.items():
             ctr, ind = self._nav_containers[k]
             if k == key:
@@ -272,6 +281,8 @@ class App(tk.Tk):
         self._current_page = key
 
         # Lazy imports — avoids circular deps at module load
+        from page_home       import HomePage
+        from page_more       import MorePage
         from page_dashboard import DashboardPage
         from page_schedule  import SchedulePage
         from page_data       import DataManagementPage
@@ -280,7 +291,12 @@ class App(tk.Tk):
         from page_goals      import GoalsPage
         from page_settings   import SettingsPage
 
+        # "home" and "schedule" are the primary surfaces; everything below
+        # "more" is still fully registered and reachable, just not in the
+        # main nav. MorePage links to each of these keys directly.
         pages = {
+            "home":            HomePage,
+            "more":            MorePage,
             "dashboard":       DashboardPage,
             "schedule":        SchedulePage,
             "data_management": DataManagementPage,

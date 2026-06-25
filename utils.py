@@ -1,5 +1,5 @@
 """
-utils.py — Shared utility functions for the Financial Reality Engine.
+utils.py — Shared utility functions for the ShiftIQ.
 
 Single source of truth for name canonicalization.
 All modules must import from here — never define _canon() locally.

@@ -1,5 +1,5 @@
 """
-optimizer.py — Constrained shift-selection optimizer for FRE.
+optimizer.py — Constrained shift-selection optimizer for ShiftIQ.
 
 Problem
 ───────
@@ -84,7 +84,7 @@ class OptimizationResult:
 
 # ── Solver ────────────────────────────────────────────────────────────────────
 
-_QUANTUM_PER_HOUR = 4  # quarter-hour resolution — matches FRE's scheduling grid
+_QUANTUM_PER_HOUR = 4  # quarter-hour resolution — matches ShiftIQ's scheduling grid
 
 
 def optimize_shift_selection(

@@ -1,5 +1,5 @@
 """
-test_fre.py — Automated test suite for the Financial Reality Engine.
+test_fre.py — Automated test suite for the ShiftIQ.
 
 Run with:
     python3 -m pytest test_fre.py -v
@@ -876,7 +876,7 @@ class TestScenarioEngineBugRegression:
 #  15. SCHEDULE ANALYTICS — pure functions
 # ═════════════════════════════════════════════════════════════════════════════
 
-import schedule_analytics as sa
+import shift_analytics as sa
 import datetime
 
 def _make_event(title="Job A", category="Work", day="Monday",

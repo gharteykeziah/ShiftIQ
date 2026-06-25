@@ -4,7 +4,7 @@ import tkinter as tk
 import theme
 import database as db
 import charts
-import schedule_analytics as sa
+import shift_analytics as sa
 from theme import F_BODY, F_SMALL, F_H2
 from widgets import ScrollFrame, TabBar, page_title, card, kv_row
 

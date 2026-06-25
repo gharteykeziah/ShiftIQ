@@ -4,7 +4,7 @@ shift_planner_ui.py — Standalone tkinter UI for the Shift Engine.
 Run this file directly:
     python shift_planner_ui.py
 
-Nothing in the existing FRE app is changed.
+Nothing in the existing ShiftIQ app is changed.
 All data is read/written through shift_engine.py.
 """
 
@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import shift_engine as se
 
-# ── Colour palette (dark, matches FRE style) ──────────────────────────────────
+# ── Colour palette (dark, matches ShiftIQ style) ──────────────────────────────────
 BG        = "#0F1117"
 SIDEBAR   = "#1A1D27"
 CARD      = "#1E2130"
@@ -736,7 +736,7 @@ class OpportunityTab(tk.Frame):
 class ShiftPlannerApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Shift Planner — FRE")
+        self.title("Shift Planner — ShiftIQ")
         self.geometry("920x660")
         self.configure(bg=BG)
         self.resizable(True, True)
@@ -750,7 +750,7 @@ class ShiftPlannerApp(tk.Tk):
         top.pack(fill="x")
         _label(top, "  Shift Planner", font=("Inter", 16, "bold"),
                fg=WHITE, bg=ACCENT).pack(side="left")
-        _label(top, "Financial Reality Engine  ·  Schedule Module",
+        _label(top, "ShiftIQ  ·  Schedule Module",
                fg="#b2f0d0", bg=ACCENT, font=F_SMALL).pack(side="left", padx=14)
 
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x")

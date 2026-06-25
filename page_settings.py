@@ -120,7 +120,7 @@ class SettingsPage(tk.Frame):
         tk.Label(inner, text="About", font=F_H2,
                  fg=theme.TEXT, bg=theme.BG).pack(anchor="w", pady=(24, 8))
         about_c = card(inner, pady=10)
-        kv_row(about_c, "App",        "Financial Reality Engine")
+        kv_row(about_c, "App",        "ShiftIQ")
         kv_row(about_c, "Version",    config.APP_VERSION)
         kv_row(about_c, "Built with", "Python · tkinter · SQLite · matplotlib")
         kv_row(about_c, "License",    "MIT")

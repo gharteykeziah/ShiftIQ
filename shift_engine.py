@@ -1,5 +1,5 @@
 """
-shift_engine.py — Scheduling backend for the Financial Reality Engine (FRE).
+shift_engine.py — Scheduling backend for the ShiftIQ (ShiftIQ).
 
 Designed for part-time workers with VARIABLE weekly schedules.
 Users define job profiles once, then enter new shifts each week.

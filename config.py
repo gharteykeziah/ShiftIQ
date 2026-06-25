@@ -1,12 +1,12 @@
 """
-config.py — Central configuration for the Financial Reality Engine.
+config.py — Central configuration for ShiftIQ.
 Change values here to affect the whole app.
 """
 
 import os
 
 # ── App Info ──────────────────────────────────────────────────────────────────
-APP_NAME    = "Financial Reality Engine"
+APP_NAME    = "ShiftIQ"
 APP_VERSION = "1.1"
 
 # ── Database ──────────────────────────────────────────────────────────────────

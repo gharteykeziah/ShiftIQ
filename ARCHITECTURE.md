@@ -1,4 +1,4 @@
-# FRE — System Architecture and Design Explanation
+# ShiftIQ — System Architecture and Design Explanation
 
 This document covers: the component diagram (convertible to a visual tool), data flow, and the reasoning behind every major design decision.
 
@@ -228,7 +228,7 @@ Return dict → page_forecast renders statistics
 
 ### 3.1 Why Income Is Derived, Not Stored
 
-Most financial apps store income as a number in the database. FRE derives it from the schedule.
+Most financial apps store income as a number in the database. ShiftIQ derives it from the schedule.
 
 A `Job` record in the database carries `amount` and `frequency` — the face-value amount and how often it is paid. `weekly_income()` converts this using `FREQ_TO_WEEKLY`. But the `amount` itself is populated by `sync_schedule_to_jobs()`, which sums `total_hours × rate` from all matching Work events.
 
@@ -237,7 +237,7 @@ This means:
 - Removing a shift automatically reduces it
 - The financial state always reflects the actual schedule, not a manually entered number
 
-The alternative — requiring the user to enter income manually and separately maintain a schedule — creates two sources of truth that will inevitably disagree. FRE eliminates that class of inconsistency.
+The alternative — requiring the user to enter income manually and separately maintain a schedule — creates two sources of truth that will inevitably disagree. ShiftIQ eliminates that class of inconsistency.
 
 ### 3.2 Single Source of Truth for Calculations
 
@@ -293,7 +293,7 @@ The `events` table similarly detects a missing `shift_date` column and adds it w
 
 Variable-income workers enter the same job under multiple spellings across sessions. `"Admissions"`, `"admissions"`, `"Admission"`, and `"admissions office"` are all the same job — but a naive string comparison treats them as four distinct records.
 
-FRE addresses this at three points in the pipeline:
+ShiftIQ addresses this at three points in the pipeline:
 
 | Stage | Function | Behaviour |
 |---|---|---|

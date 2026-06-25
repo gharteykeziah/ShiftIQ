@@ -13,7 +13,7 @@ CATEGORIES = ["Work", "Class", "Study", "Meeting", "Personal", "Other"]
 
 # Color per category (used by the Schedule page for visual coding)
 CATEGORY_COLORS = {
-    "Work":     "#1B6B3A",   # FRE accent green
+    "Work":     "#1B6B3A",   # ShiftIQ accent green
     "Class":    "#2563EB",   # blue
     "Study":    "#D97706",   # amber
     "Meeting":  "#7C3AED",   # purple

@@ -1,5 +1,5 @@
 """
-financial_state.py — Central state manager for the Financial Reality Engine.
+financial_state.py — Central state manager for ShiftIQ.
 
 Owns all financial data (jobs, expenses, balance) and all calculations.
 InsightEngine reads from this — it does not duplicate any logic here.

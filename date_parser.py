@@ -1,5 +1,5 @@
 """
-date_parser.py — Flexible date-aware schedule import parser for FRE.
+date_parser.py — Flexible date-aware schedule import parser for ShiftIQ.
 
 Three modes are auto-detected from the first meaningful line of the input:
 

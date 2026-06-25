@@ -1,5 +1,5 @@
 """
-widgets.py — Shared UI primitives for the Financial Reality Engine.
+widgets.py — Shared UI primitives for the ShiftIQ.
 
 Every helper registers its widgets with ThemeManager so a dark/light-mode
 toggle can reconfigure them in place without destroying any pages.

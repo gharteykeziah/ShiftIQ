@@ -1,5 +1,5 @@
 """
-schedule_analytics.py — Date-range income and schedule analytics for FRE.
+schedule_analytics.py — Date-range income and schedule analytics for ShiftIQ.
 
 All functions are pure: they accept ScheduleEvent lists (from database.py)
 and return plain dicts / dataclass instances — no GUI, no DB calls.

@@ -1,7 +1,7 @@
 """
 shift_parser.py
 ───────────────
-Financial Reality Engine — Shift Parser & Weekly Schedule Importer
+ShiftIQ — Shift Parser & Weekly Schedule Importer
 
 Lets users paste their full weekly schedule as a single text block
 instead of entering each shift manually.

@@ -5,7 +5,7 @@
 # desktop app — the desktop app has no place to run on a headless server.
 services:
   - type: web
-    name: financial-reality-engine-api
+    name: shiftiq-api
     env: python
     plan: free
     buildCommand: pip install -r requirements-api.txt
