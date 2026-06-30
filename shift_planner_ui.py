@@ -1,16 +1,60 @@
 """
-shift_planner_ui.py — Standalone tkinter UI for the Shift Engine.
+shift_planner_ui.py — Standalone tkinter UI for ShiftIQ's schedule module.
 
 Run this file directly:
     python shift_planner_ui.py
 
-Nothing in the existing ShiftIQ app is changed.
-All data is read/written through shift_engine.py.
+All data is read/written through schedule_core.py (fre_jobs / fre_shifts tables).
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import shift_engine as se
+
+from schedule_core import (
+    Scheduler, ValidationError,
+    FreeTimeMode, IncomeMode, OpportunityMode,
+    _fmt12, _fmt_hours, _to_min,
+    _DAY_START, _DAY_END, _DAYS,
+)
+
+# Module-level scheduler — creates tables on first run
+_sched = Scheduler()
+
+# Aliases matching the old se.xxx names used throughout the file
+DAY_ORDER = _DAYS
+DAY_START  = _DAY_START
+DAY_END    = _DAY_END
+
+
+def _format_time_12h(t: str) -> str:  return _fmt12(t)
+def _format_hours(h: float) -> str:   return _fmt_hours(h)
+def _time_to_minutes(t: str) -> int:  return _to_min(t)
+
+
+def _jobs_as_dicts() -> list[dict]:
+    """Convert Scheduler.get_jobs() → list of {"job_name", "hourly_rate"} dicts."""
+    return [{"job_name": j.name, "hourly_rate": j.hourly_rate}
+            for j in _sched.get_jobs()]
+
+
+def _schedule_as_dicts() -> dict[str, list[dict]]:
+    """Convert Scheduler.get_weekly_schedule() → dict[str, list[dict]] for the UI."""
+    raw = _sched.get_weekly_schedule()
+    return {
+        day: [
+            {
+                "id":          s.id,
+                "job_name":    s.job_name,
+                "hourly_rate": s.hourly_rate,
+                "start_time":  s.start_time,
+                "end_time":    s.end_time,
+                "hours":       s.hours,
+            }
+            for s in shifts
+        ]
+        for day, shifts in raw.items()
+    }
+
 
 # ── Colour palette (dark, matches ShiftIQ style) ──────────────────────────────────
 BG        = "#0F1117"
@@ -184,21 +228,24 @@ class JobsTab(tk.Frame):
             messagebox.showerror("Invalid Rate",
                                  "Hourly rate must be a number (e.g. 12.50).")
             return
-        se.add_job(name, rate)
+        _sched.add_job(name, rate)
         self._hide_form()
         self._refresh_list()
 
     def _delete_job(self, name):
         if messagebox.askyesno("Delete Job",
                                f"Delete '{name}' and all its shifts?"):
-            se.delete_job(name)
+            try:
+                _sched.delete_job(name)
+            except ValidationError:
+                pass   # already gone — just refresh
             self._refresh_list()
 
     def _refresh_list(self):
         for w in self._list_inner.winfo_children():
             w.destroy()
 
-        jobs = se.get_jobs()
+        jobs = _jobs_as_dicts()
         if not jobs:
             _label(self._list_inner,
                    "No jobs yet. Click '+ Add Job' to create one.",
@@ -299,8 +346,8 @@ class ShiftsTab(tk.Frame):
 
     def _show_form(self):
         # Refresh job list in dropdown
-        jobs = se.get_jobs()
-        names = [j["job_name"] for j in jobs]
+        jobs  = _sched.get_jobs()
+        names = [j.name for j in jobs]
         self._job_cb["values"] = names
         if names:
             self._job_var.set(names[0])
@@ -320,8 +367,8 @@ class ShiftsTab(tk.Frame):
                                  "No job selected. Add a job profile first.")
             return
         try:
-            se.add_shift(job_name, day, start, end)
-        except ValueError as e:
+            _sched.add_shift(job_name, day, start, end)
+        except (ValueError, ValidationError) as e:
             messagebox.showerror("Invalid Shift", str(e))
             return
 
@@ -332,19 +379,22 @@ class ShiftsTab(tk.Frame):
         if messagebox.askyesno("Clear Week",
                                "Delete ALL shifts this week?\n"
                                "Job profiles will NOT be deleted."):
-            se.clear_week()
+            _sched.clear_week()
             self._refresh_list()
 
     def _delete_shift(self, shift_id):
-        se.delete_shift(shift_id)
+        try:
+            _sched.delete_shift(shift_id)
+        except ValidationError:
+            pass
         self._refresh_list()
 
     def _refresh_list(self):
         for w in self._list_inner.winfo_children():
             w.destroy()
 
-        schedule = se.get_weekly_schedule()
-        has_any  = any(schedule[d] for d in se.DAY_ORDER)
+        schedule = _schedule_as_dicts()
+        has_any  = any(schedule[d] for d in DAY_ORDER)
 
         if not has_any:
             _label(self._list_inner,
@@ -352,7 +402,7 @@ class ShiftsTab(tk.Frame):
                    fg=MUTED, bg=BG).pack(pady=40)
             return
 
-        for day in se.DAY_ORDER:
+        for day in DAY_ORDER:
             shifts = schedule[day]
             if not shifts:
                 continue
@@ -375,11 +425,11 @@ class ShiftsTab(tk.Frame):
 
                 _label(inner, s["job_name"], font=("Inter", 11, "bold"),
                        bg=CARD).pack(side="left")
-                start12 = se._format_time_12h(s["start_time"])
-                end12   = se._format_time_12h(s["end_time"])
+                start12 = _format_time_12h(s["start_time"])
+                end12   = _format_time_12h(s["end_time"])
                 _label(inner, f"{start12} – {end12}",
                        fg=MUTED, bg=CARD, font=F_SMALL).pack(side="left", padx=14)
-                _label(inner, se._format_hours(s["hours"]),
+                _label(inner, _format_hours(s["hours"]),
                        fg=ACCENT2, bg=CARD, font=F_SMALL).pack(side="left")
 
                 _btn(inner, "✕", lambda sid=s["id"]: self._delete_shift(sid),
@@ -412,12 +462,12 @@ class FreeTimeTab(tk.Frame):
         for w in self._inner.winfo_children():
             w.destroy()
 
-        data = se.FreeTimeMode().run()
+        data = FreeTimeMode(_sched).run()
 
         total_busy = 0.0
         total_free = 0.0
 
-        for day in se.DAY_ORDER:
+        for day in DAY_ORDER:
             day_data = data[day]
             busy_h   = day_data["total_busy_hours"]
             free_h   = day_data["total_free_hours"]
@@ -432,7 +482,7 @@ class FreeTimeTab(tk.Frame):
             day_row.pack(fill="x", padx=24, pady=(12, 4))
             _label(day_row, day, font=F_HEAD, bg=BG).pack(side="left")
             _label(day_row,
-                   f"  {se._format_hours(busy_h)} busy  ·  {se._format_hours(free_h)} free",
+                   f"  {_format_hours(busy_h)} busy  ·  {_format_hours(free_h)} free",
                    fg=MUTED, bg=BG, font=F_SMALL).pack(side="left", padx=8)
 
             card = _card(self._inner)
@@ -445,11 +495,11 @@ class FreeTimeTab(tk.Frame):
                     side="left", padx=(0, 10))
                 _label(row, "BUSY", fg=RED, bg=CARD,
                        font=("Inter", 9, "bold")).pack(side="left", padx=(0, 8))
-                start12 = se._format_time_12h(s["start_time"])
-                end12   = se._format_time_12h(s["end_time"])
+                start12 = _format_time_12h(s["start_time"])
+                end12   = _format_time_12h(s["end_time"])
                 _label(row, f"{start12} – {end12}",
                        fg=TEXT, bg=CARD, font=F_SMALL).pack(side="left", padx=(0, 8))
-                _label(row, f"({se._format_hours(s['hours'])})",
+                _label(row, f"({_format_hours(s['hours'])})",
                        fg=MUTED, bg=CARD, font=F_SMALL).pack(side="left", padx=(0, 8))
                 _label(row, s["job_name"], fg=MUTED, bg=CARD,
                        font=F_SMALL).pack(side="left")
@@ -461,11 +511,11 @@ class FreeTimeTab(tk.Frame):
                     side="left", padx=(0, 10))
                 _label(row, "FREE", fg=ACCENT2, bg=CARD,
                        font=("Inter", 9, "bold")).pack(side="left", padx=(0, 8))
-                start12 = se._format_time_12h(b["start"])
-                end12   = se._format_time_12h(b["end"])
+                start12 = _format_time_12h(b["start"])
+                end12   = _format_time_12h(b["end"])
                 _label(row, f"{start12} – {end12}",
                        fg=TEXT, bg=CARD, font=F_SMALL).pack(side="left", padx=(0, 8))
-                _label(row, f"({se._format_hours(b['hours'])})",
+                _label(row, f"({_format_hours(b['hours'])})",
                        fg=ACCENT2, bg=CARD, font=F_SMALL).pack(side="left")
 
         # ── Weekly summary ──
@@ -475,8 +525,8 @@ class FreeTimeTab(tk.Frame):
         s_inner = tk.Frame(summary, bg=CARD)
         s_inner.pack(fill="x", padx=20, pady=14)
 
-        window_h = (se._time_to_minutes(se.DAY_END) -
-                    se._time_to_minutes(se.DAY_START)) * 7 / 60
+        window_h = (_time_to_minutes(DAY_END) -
+                    _time_to_minutes(DAY_START)) * 7 / 60
         avail = round(total_free / window_h * 100) if window_h else 0
 
         _label(s_inner, "Week Total", font=F_HEAD, bg=CARD).pack(anchor="w")
@@ -484,9 +534,9 @@ class FreeTimeTab(tk.Frame):
         stat_row.pack(anchor="w", pady=4)
 
         for val, label, col in [
-            (se._format_hours(total_busy), "busy",  RED),
-            (se._format_hours(total_free), "free",  ACCENT2),
-            (f"{avail}%",                  "available", BLUE),
+            (_format_hours(total_busy), "busy",      RED),
+            (_format_hours(total_free), "free",      ACCENT2),
+            (f"{avail}%",               "available", BLUE),
         ]:
             box = tk.Frame(stat_row, bg=BORDER, padx=12, pady=8)
             box.pack(side="left", padx=(0, 10))
@@ -522,7 +572,7 @@ class IncomeTab(tk.Frame):
         for w in self._inner.winfo_children():
             w.destroy()
 
-        data = se.IncomeMode().run()
+        data = IncomeMode(_sched).run()
 
         if not data["by_job"]:
             _label(self._inner,
@@ -559,11 +609,11 @@ class IncomeTab(tk.Frame):
                 s_row.pack(fill="x", pady=2)
                 _label(s_row, f"{s['day']:12s}", fg=MUTED,
                        bg=CARD, font=F_SMALL).pack(side="left")
-                start12 = se._format_time_12h(s["start_time"])
-                end12   = se._format_time_12h(s["end_time"])
+                start12 = _format_time_12h(s["start_time"])
+                end12   = _format_time_12h(s["end_time"])
                 _label(s_row, f"{start12} – {end12}",
                        fg=TEXT, bg=CARD, font=F_SMALL).pack(side="left", padx=10)
-                _label(s_row, se._format_hours(s["hours"]),
+                _label(s_row, _format_hours(s["hours"]),
                        fg=MUTED, bg=CARD, font=F_SMALL).pack(side="left", padx=10)
                 earn = round(s["hours"] * info["hourly_rate"], 2)
                 _label(s_row, f"${earn:.2f}",
@@ -572,7 +622,7 @@ class IncomeTab(tk.Frame):
             # Subtotal
             sub_row = tk.Frame(inner, bg=CARD)
             sub_row.pack(fill="x", pady=(6, 0))
-            _label(sub_row, f"Subtotal:  {se._format_hours(info['total_hours'])}",
+            _label(sub_row, f"Subtotal:  {_format_hours(info['total_hours'])}",
                    fg=MUTED, bg=CARD, font=F_SMALL).pack(side="left")
             _label(sub_row, f"${info['income']:.2f}",
                    fg=ACCENT2, bg=CARD, font=("Inter", 11, "bold")).pack(side="right")
@@ -589,9 +639,9 @@ class IncomeTab(tk.Frame):
         stat_row.pack(anchor="w", pady=6)
 
         for val, label, col in [
-            (se._format_hours(data["total_hours"]),  "total hours",   BLUE),
-            (f"${data['total_income']:.2f}",          "total income",  ACCENT2),
-            (f"${data['average_hourly']:.2f}/hr",     "avg rate",      YELLOW),
+            (_format_hours(data["total_hours"]),  "total hours",  BLUE),
+            (f"${data['total_income']:.2f}",       "total income", ACCENT2),
+            (f"${data['average_hourly']:.2f}/hr",  "avg rate",     YELLOW),
         ]:
             box = tk.Frame(stat_row, bg=BORDER, padx=14, pady=10)
             box.pack(side="left", padx=(0, 12))
@@ -627,15 +677,15 @@ class OpportunityTab(tk.Frame):
         for w in self._inner.winfo_children():
             w.destroy()
 
-        jobs = se.get_jobs()
+        jobs = _sched.get_jobs()
         if not jobs:
             _label(self._inner,
                    "No job profiles found. Add jobs first.",
                    fg=MUTED, bg=BG).pack(pady=40)
             return
 
-        data = se.OpportunityMode().run()
-        has_blocks = any(data[d] for d in se.DAY_ORDER)
+        data = OpportunityMode(_sched).run()
+        has_blocks = any(data[d] for d in DAY_ORDER)
 
         if not has_blocks:
             _label(self._inner,
@@ -645,7 +695,7 @@ class OpportunityTab(tk.Frame):
 
         total_max = 0.0
 
-        for day in se.DAY_ORDER:
+        for day in DAY_ORDER:
             blocks = data[day]
             if not blocks:
                 continue
@@ -670,10 +720,10 @@ class OpportunityTab(tk.Frame):
                 # Time header
                 t_row = tk.Frame(b_inner, bg=CARD)
                 t_row.pack(fill="x")
-                start12 = se._format_time_12h(block["start"])
-                end12   = se._format_time_12h(block["end"])
+                start12 = _format_time_12h(block["start"])
+                end12   = _format_time_12h(block["end"])
                 _label(t_row,
-                       f"FREE:  {start12} – {end12}  ({se._format_hours(block['hours'])})",
+                       f"FREE:  {start12} – {end12}  ({_format_hours(block['hours'])})",
                        font=("Inter", 11, "bold"), fg=TEXT, bg=CARD).pack(side="left")
                 if block["best_income"] > 0:
                     _label(t_row, f"Best: ${block['best_income']:.2f}",
@@ -740,8 +790,7 @@ class ShiftPlannerApp(tk.Tk):
         self.geometry("920x660")
         self.configure(bg=BG)
         self.resizable(True, True)
-
-        se.init_shift_tables()
+        # Tables are created by Scheduler() at module level (_sched)
         self._build()
 
     def _build(self):

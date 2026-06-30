@@ -887,6 +887,42 @@ class FreeTimeMode(_DisplayBase):
         FreeTimeMode(sched).display(show_potential=True) # + earning potential
     """
 
+    def run(self) -> dict:
+        """
+        Return structured free-time data for all 7 days (consumed by the UI).
+
+        Each day maps to:
+            shifts           — list of busy-block dicts
+            free_blocks      — list of free-block dicts
+            total_busy_hours — float
+            total_free_hours — float
+        """
+        schedule = self._sched.get_weekly_schedule()
+        result: dict = {}
+        for day in _DAYS:
+            shifts    = schedule[day]
+            free_blks = Engine.compute_free_time(shifts, day)
+            result[day] = {
+                "shifts": [
+                    {
+                        "id":          s.id,
+                        "job_name":    s.job_name,
+                        "hourly_rate": s.hourly_rate,
+                        "start_time":  s.start_time,
+                        "end_time":    s.end_time,
+                        "hours":       s.hours,
+                    }
+                    for s in shifts
+                ],
+                "free_blocks": [
+                    {"start": b.start, "end": b.end, "hours": b.hours}
+                    for b in free_blks
+                ],
+                "total_busy_hours": round(sum(s.hours for s in shifts), 2),
+                "total_free_hours": round(sum(b.hours for b in free_blks), 2),
+            }
+        return result
+
     def display(self, show_potential: bool = False) -> None:
         """
         Parameters
@@ -1005,6 +1041,45 @@ class OpportunityMode(_DisplayBase):
         OpportunityMode(sched).display()
     """
 
+    def run(self) -> dict:
+        """
+        Return structured opportunity data keyed by day (consumed by the UI).
+
+        Each day maps to a list of free-block dicts:
+            start        — "HH:MM"
+            end          — "HH:MM"
+            hours        — float
+            potential    — [{"job", "rate", "potential_income"}, ...]
+            best_job     — str
+            best_income  — float
+        """
+        schedule = self._sched.get_weekly_schedule()
+        jobs     = self._sched.get_jobs()
+        result: dict = {}
+        for day in _DAYS:
+            shifts    = schedule[day]
+            free_blks = Engine.compute_free_time(shifts, day)
+            analysis  = Engine.opportunity_analysis(free_blks, jobs) if free_blks else []
+            result[day] = [
+                {
+                    "start":       entry["block"].start,
+                    "end":         entry["block"].end,
+                    "hours":       entry["block"].hours,
+                    "potential": [
+                        {
+                            "job":              opt["job_name"],
+                            "rate":             opt["rate"],
+                            "potential_income": opt["potential"],
+                        }
+                        for opt in entry["options"]
+                    ],
+                    "best_job":    entry["best_job"],
+                    "best_income": entry["best_earn"],
+                }
+                for entry in analysis
+            ]
+        return result
+
     def display(self) -> None:
         schedule = self._sched.get_weekly_schedule()
         jobs     = self._sched.get_jobs()
@@ -1098,6 +1173,51 @@ class IncomeMode(_DisplayBase):
     Usage:
         IncomeMode(sched).display()
     """
+
+    def run(self) -> dict:
+        """
+        Return structured income data (consumed by the UI).
+
+        Returns:
+            by_job         — {job_name: {"shifts", "total_hours", "hourly_rate", "income"}}
+            total_hours    — float
+            total_income   — float
+            average_hourly — float
+        Shifts inside by_job include: {"day", "start_time", "end_time", "hours"}.
+        """
+        schedule = self._sched.get_weekly_schedule()
+        by_job: dict[str, dict] = {}
+        for day in _DAYS:
+            for s in schedule[day]:
+                if s.job_name not in by_job:
+                    by_job[s.job_name] = {
+                        "shifts":      [],
+                        "total_hours": 0.0,
+                        "hourly_rate": s.hourly_rate,
+                        "income":      0.0,
+                    }
+                by_job[s.job_name]["shifts"].append({
+                    "day":        s.day,
+                    "start_time": s.start_time,
+                    "end_time":   s.end_time,
+                    "hours":      s.hours,
+                })
+                by_job[s.job_name]["total_hours"] += s.hours
+                by_job[s.job_name]["income"]      += s.income
+
+        for info in by_job.values():
+            info["total_hours"] = round(info["total_hours"], 2)
+            info["income"]      = round(info["income"],      2)
+
+        total_hours  = round(sum(v["total_hours"] for v in by_job.values()), 2)
+        total_income = round(sum(v["income"]      for v in by_job.values()), 2)
+        avg_rate     = round(total_income / total_hours, 2) if total_hours else 0.0
+        return {
+            "by_job":          by_job,
+            "total_hours":     total_hours,
+            "total_income":    total_income,
+            "average_hourly":  avg_rate,
+        }
 
     def display(self) -> None:
         schedule = self._sched.get_weekly_schedule()
