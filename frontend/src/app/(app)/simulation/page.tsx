@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { TrendingUp, TrendingDown, ShieldCheck, ShieldAlert } from "lucide-react";
+import { TrendingUp, TrendingDown, ShieldCheck, ShieldAlert, Dices, Wand2 } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -207,6 +207,19 @@ export default function SimulationPage() {
               </div>
             </>
           )}
+
+          {!mcResult && !mcLoading && (
+            <Card className="flex flex-col items-center gap-2 py-10 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-light">
+                <Dices className="h-6 w-6 text-accent" aria-hidden="true" />
+              </span>
+              <p className="font-semibold text-text">No simulation run yet</p>
+              <p className="max-w-sm text-sm text-muted">
+                Enter a number of weeks above and run it to see your average, best, and worst case
+                outcomes.
+              </p>
+            </Card>
+          )}
         </div>
       ) : (
         <div className="space-y-6">
@@ -283,6 +296,19 @@ export default function SimulationPage() {
                 </ResponsiveContainer>
               </div>
             </>
+          )}
+
+          {!wiResult && !wiLoading && (
+            <Card className="flex flex-col items-center gap-2 py-10 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-light">
+                <Wand2 className="h-6 w-6 text-accent" aria-hidden="true" />
+              </span>
+              <p className="font-semibold text-text">No what-if run yet</p>
+              <p className="max-w-sm text-sm text-muted">
+                Describe an event above and run it to see how it plays out on your balance week by
+                week.
+              </p>
+            </Card>
           )}
         </div>
       )}
