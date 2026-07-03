@@ -39,22 +39,24 @@ def init_db() -> None:
         c.execute("""
             CREATE TABLE IF NOT EXISTS jobs (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                name      TEXT UNIQUE,
+                name      TEXT NOT NULL,
                 amount    REAL,
                 frequency TEXT DEFAULT 'Weekly',
-                user_id   INTEGER DEFAULT 1
+                user_id   INTEGER DEFAULT 1,
+                UNIQUE(name, user_id)
             )
         """)
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS expenses (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                name      TEXT UNIQUE,
+                name      TEXT NOT NULL,
                 amount    REAL,
                 category  TEXT,
                 date      TEXT,
                 frequency TEXT DEFAULT 'Monthly',
-                user_id   INTEGER DEFAULT 1
+                user_id   INTEGER DEFAULT 1,
+                UNIQUE(name, user_id)
             )
         """)
 
@@ -91,6 +93,30 @@ def init_db() -> None:
             c.execute("ALTER TABLE jobs ADD COLUMN user_id INTEGER DEFAULT 1")
             c.execute("UPDATE jobs SET user_id = 1 WHERE user_id IS NULL")
 
+        # Migrate: change UNIQUE(name) → UNIQUE(name, user_id) for multi-user isolation.
+        # Old schema had a single-column unique on name, which silently blocks two users
+        # from having the same job name. Detect by checking existing indexes.
+        job_indexes = c.execute("PRAGMA index_list(jobs)").fetchall()
+        has_composite_jobs = any(
+            {"name", "user_id"} == {r[2] for r in c.execute(f"PRAGMA index_info('{idx[1]}')").fetchall()}
+            for idx in job_indexes
+        )
+        if not has_composite_jobs and c.execute("PRAGMA table_info(jobs)").fetchall():
+            c.execute("""
+                CREATE TABLE jobs_migrated (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name      TEXT NOT NULL,
+                    amount    REAL,
+                    frequency TEXT DEFAULT 'Weekly',
+                    user_id   INTEGER DEFAULT 1,
+                    UNIQUE(name, user_id)
+                )
+            """)
+            c.execute("INSERT OR IGNORE INTO jobs_migrated (id, name, amount, frequency, user_id) "
+                      "SELECT id, name, amount, frequency, user_id FROM jobs")
+            c.execute("DROP TABLE jobs")
+            c.execute("ALTER TABLE jobs_migrated RENAME TO jobs")
+
         # Migrate old jobs table (hourly_rate + hours_per_week → amount + frequency)
         cols = [r[1] for r in c.execute("PRAGMA table_info(jobs)").fetchall()]
         if "hourly_rate" in cols:
@@ -119,6 +145,30 @@ def init_db() -> None:
         cols = [r[1] for r in c.execute("PRAGMA table_info(expenses)").fetchall()]
         if "frequency" not in cols:
             c.execute("ALTER TABLE expenses ADD COLUMN frequency TEXT DEFAULT 'Monthly'")
+
+        # Migrate: change UNIQUE(name) → UNIQUE(name, user_id) for multi-user isolation.
+        exp_indexes = c.execute("PRAGMA index_list(expenses)").fetchall()
+        has_composite_expenses = any(
+            {"name", "user_id"} == {r[2] for r in c.execute(f"PRAGMA index_info('{idx[1]}')").fetchall()}
+            for idx in exp_indexes
+        )
+        if not has_composite_expenses and c.execute("PRAGMA table_info(expenses)").fetchall():
+            c.execute("""
+                CREATE TABLE expenses_migrated (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name      TEXT NOT NULL,
+                    amount    REAL,
+                    category  TEXT,
+                    date      TEXT,
+                    frequency TEXT DEFAULT 'Monthly',
+                    user_id   INTEGER DEFAULT 1,
+                    UNIQUE(name, user_id)
+                )
+            """)
+            c.execute("INSERT OR IGNORE INTO expenses_migrated (id, name, amount, category, date, frequency, user_id) "
+                      "SELECT id, name, amount, category, date, frequency, user_id FROM expenses")
+            c.execute("DROP TABLE expenses")
+            c.execute("ALTER TABLE expenses_migrated RENAME TO expenses")
 
         # History table for trend tracking
         # date remains UNIQUE so ON CONFLICT(date) in record_snapshot() works.
@@ -305,25 +355,25 @@ def _canon_db(name: str) -> str:
 
 def dedup_jobs() -> None:
     """
-    Canonical-deduplicate jobs table on startup.
+    Canonical-deduplicate jobs table on startup, scoped per user.
     'admissions', 'Admissions', 'admission' → one 'Admissions' entry.
-    Keeps the row with the highest amount.
+    Keeps the row with the highest amount. Never touches another user's rows.
     """
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, name, amount FROM jobs ORDER BY amount DESC"
+            "SELECT id, name, amount, user_id FROM jobs ORDER BY amount DESC"
         ).fetchall()
-        seen: dict[str, int] = {}   # canon_key → id to keep
+        seen: dict[tuple, int] = {}   # (user_id, canon_key) → id to keep
         to_delete: list[int] = []
-        for row_id, name, _ in rows:
-            key = _canon_db(name)
+        for row_id, name, _, user_id in rows:
+            key = (user_id, _canon_db(name))
             if key in seen:
                 to_delete.append(row_id)
             else:
                 seen[key] = row_id
                 # Rename to canonical form
                 conn.execute(
-                    "UPDATE jobs SET name = ? WHERE id = ?", (key, row_id)
+                    "UPDATE jobs SET name = ? WHERE id = ?", (_canon_db(name), row_id)
                 )
         for del_id in to_delete:
             conn.execute("DELETE FROM jobs WHERE id = ?", (del_id,))
@@ -332,45 +382,49 @@ def dedup_jobs() -> None:
 
 def dedup_expenses() -> None:
     """
-    Canonical-deduplicate expenses table on startup.
+    Canonical-deduplicate expenses table on startup, scoped per user.
     'rent', 'Rent', 'rents' → one 'Rent' entry (highest amount kept).
+    Never touches another user's rows.
     """
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, name, amount FROM expenses ORDER BY amount DESC"
+            "SELECT id, name, amount, user_id FROM expenses ORDER BY amount DESC"
         ).fetchall()
-        seen: dict[str, int] = {}
+        seen: dict[tuple, int] = {}
         to_delete: list[int] = []
-        for row_id, name, _ in rows:
-            key = _canon_db(name)
+        for row_id, name, _, user_id in rows:
+            key = (user_id, _canon_db(name))
             if key in seen:
                 to_delete.append(row_id)
             else:
                 seen[key] = row_id
                 conn.execute(
-                    "UPDATE expenses SET name = ? WHERE id = ?", (key, row_id)
+                    "UPDATE expenses SET name = ? WHERE id = ?", (_canon_db(name), row_id)
                 )
         for del_id in to_delete:
             conn.execute("DELETE FROM expenses WHERE id = ?", (del_id,))
         conn.commit()
 
 
-def update_events_rate(job_title: str, rate: float, threshold: float = 0.82) -> None:
+def update_events_rate(job_title: str, rate: float, threshold: float = 0.82,
+                       user_id: int = 1) -> None:
     """
-    Set hourly_rate on ALL Work events whose canonical name matches job_title.
-    'admission', 'Admissions', 'admissions' all update together.
+    Set hourly_rate on all Work events for a specific user whose canonical
+    name matches job_title. 'admission', 'Admissions', 'admissions' all update
+    together — but only for the given user (defaults to 1 for the desktop app).
     """
     target_canon = _canon_db(job_title)
     with get_connection() as conn:
         titles = conn.execute(
-            "SELECT DISTINCT title FROM events WHERE category = 'Work'"
+            "SELECT DISTINCT title FROM events WHERE category = 'Work' AND user_id = ?",
+            (user_id,),
         ).fetchall()
         for (title,) in titles:
             if _canon_db(title) == target_canon:
                 conn.execute(
                     "UPDATE events SET hourly_rate = ? "
-                    "WHERE title = ? AND category = 'Work'",
-                    (rate, title)
+                    "WHERE title = ? AND category = 'Work' AND user_id = ?",
+                    (rate, title, user_id)
                 )
         conn.commit()
 

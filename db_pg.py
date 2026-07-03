@@ -17,20 +17,22 @@ from model import Job, Expense
 INIT_SQL = """
 CREATE TABLE IF NOT EXISTS jobs (
     id        SERIAL PRIMARY KEY,
-    name      TEXT UNIQUE,
+    name      TEXT NOT NULL,
     amount    REAL,
     frequency TEXT DEFAULT 'Weekly',
-    user_id   INTEGER DEFAULT 1
+    user_id   INTEGER DEFAULT 1,
+    UNIQUE(name, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS expenses (
     id        SERIAL PRIMARY KEY,
-    name      TEXT UNIQUE,
+    name      TEXT NOT NULL,
     amount    REAL,
     category  TEXT,
     date      TEXT,
     frequency TEXT DEFAULT 'Monthly',
-    user_id   INTEGER DEFAULT 1
+    user_id   INTEGER DEFAULT 1,
+    UNIQUE(name, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -59,7 +61,8 @@ CREATE TABLE IF NOT EXISTS events (
     end_time    TEXT    NOT NULL,
     hourly_rate REAL    NOT NULL DEFAULT 0.0,
     notes       TEXT    NOT NULL DEFAULT '',
-    shift_date  TEXT    NOT NULL DEFAULT ''
+    shift_date  TEXT    NOT NULL DEFAULT '',
+    user_id     INTEGER NOT NULL DEFAULT 1
 );
 
 INSERT INTO settings (user_id, key, value) VALUES (1, 'balance', 0) ON CONFLICT DO NOTHING;
@@ -125,7 +128,7 @@ def load_jobs(conn, user_id: int = 1) -> list[Job]:
 def insert_job(conn, job: Job, user_id: int = 1) -> None:
     conn.execute(
         "INSERT INTO jobs (name, amount, frequency, user_id) VALUES (%s, %s, %s, %s) "
-        "ON CONFLICT (name) DO NOTHING",
+        "ON CONFLICT (name, user_id) DO NOTHING",
         (job.name, job.amount, job.frequency, user_id)
     )
 
@@ -158,7 +161,7 @@ def load_expenses(conn, user_id: int = 1) -> list[Expense]:
 def insert_expense(conn, expense: Expense, user_id: int = 1) -> None:
     conn.execute(
         "INSERT INTO expenses (name, amount, category, date, frequency, user_id) "
-        "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (name) DO NOTHING",
+        "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (name, user_id) DO NOTHING",
         (expense.name, expense.amount, expense.category,
          expense.date, expense.frequency, user_id)
     )

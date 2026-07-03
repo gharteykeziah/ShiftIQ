@@ -465,8 +465,15 @@ def add_job(request: Request, job_in: JobIn, current_user: dict = Depends(get_cu
 @app.put("/api/jobs/{name}", response_model=JobOut)
 @limiter.limit("30/minute")
 def update_job(request: Request, name: str, job_in: JobIn, current_user: dict = Depends(get_current_user)) -> JobOut:
-    """Update an existing job's amount and/or frequency by name."""
+    """Update an existing job's amount and/or frequency by name.
+
+    If renaming (job_in.name != name), checks that the new name is not already
+    taken BEFORE deleting the old record, preventing silent data loss.
+    """
     state = _get_state(current_user["id"])
+    # Safety: if renaming, verify the target name doesn't already exist
+    if job_in.name != name and any(j.name == job_in.name for j in state.jobs):
+        raise HTTPException(status_code=400, detail=f"A job named '{job_in.name}' already exists.")
     ok, message = state.delete_job(name)
     if not ok:
         raise HTTPException(status_code=404, detail=f"Job '{name}' not found.")
@@ -519,8 +526,15 @@ def add_expense(request: Request, expense_in: ExpenseIn, current_user: dict = De
 @app.put("/api/expenses/{name}", response_model=ExpenseOut)
 @limiter.limit("30/minute")
 def update_expense(request: Request, name: str, expense_in: ExpenseIn, current_user: dict = Depends(get_current_user)) -> ExpenseOut:
-    """Update an existing expense by name."""
+    """Update an existing expense by name.
+
+    If renaming (expense_in.name != name), checks that the new name is not
+    already taken BEFORE deleting the old record, preventing silent data loss.
+    """
     state = _get_state(current_user["id"])
+    # Safety: if renaming, verify the target name doesn't already exist
+    if expense_in.name != name and any(e.name == expense_in.name for e in state.expenses):
+        raise HTTPException(status_code=400, detail=f"An expense named '{expense_in.name}' already exists.")
     ok, message = state.delete_expense(name)
     if not ok:
         raise HTTPException(status_code=404, detail=f"Expense '{name}' not found.")
