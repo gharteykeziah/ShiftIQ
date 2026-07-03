@@ -648,14 +648,19 @@ class TestXSSInjection:
         assert r.status_code in (200, 422)
         assert self._no_script_in_response(r)
 
-    def test_xss_only_payload_job_name_rejected_or_stripped(self, authed_client):
-        """A name that is ONLY tags reduces to empty string → must be 422."""
+    def test_xss_tag_only_name_rejected(self, authed_client):
+        """A name made of only HTML tags (no text) strips to empty → must be 422.
+
+        <script>alert(1)</script> leaves 'alert(1)' after stripping tags, so it
+        passes min_length=1. Use a self-closing tag that has no text content so
+        the stripped result is truly empty and Pydantic rejects it.
+        """
         r = authed_client.post("/api/jobs", json={
-            "name": self.XSS_PAYLOAD,
+            "name": "<img src=x onerror=alert(1)>",
             "amount": 100,
             "frequency": "Weekly",
         })
-        # After stripping, name is empty → Pydantic min_length=1 rejects it
+        # <img ...> strips to "" → min_length=1 fails → 422
         assert r.status_code == 422
 
 
