@@ -240,7 +240,7 @@ export default function ShiftsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6 sm:p-10">
+    <div className="mx-auto min-w-0 max-w-4xl space-y-6 p-6 sm:p-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-text">Shifts</h1>
         <div className="flex gap-2">
@@ -255,7 +255,7 @@ export default function ShiftsPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
         {(["All", ...DAYS] as const).map((d) => (
           <button
             key={d}

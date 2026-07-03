@@ -3,6 +3,17 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body {
+    /* Safety net: a horizontally-scrolling row (e.g. the day-filter chips on
+       the Shifts page) can, on some WebKit/Safari builds, stretch the whole
+       page wider than the viewport instead of staying contained in its own
+       scroll box. This clips any such overflow at the document level so a
+       single page's internal scroller can never widen the entire app. */
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
   body {
     @apply bg-bg text-text antialiased;
   }
