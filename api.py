@@ -278,6 +278,16 @@ class RegisterIn(BaseModel):
         return v
 
 
+class LoginIn(BaseModel):
+    email: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def normalise_email(cls, v: str) -> str:
+        return v.lower().strip()
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
@@ -323,6 +333,34 @@ def register(request: Request, body: RegisterIn) -> dict:
     db.insert_user(body.email, hashed)
 
     return {"message": "Account created.", "email": body.email}
+
+
+@app.post("/api/auth/login")
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginIn) -> dict:
+    """Authenticate a user and return a signed JWT access token.
+
+    Security rules:
+    - Wrong email and wrong password return the SAME error message.
+      This prevents user enumeration (attacker can't tell which was wrong).
+    - Rate limited to 10/minute to block brute-force password guessing.
+    - Token contains only user_id — no email, no password, no sensitive data.
+    - Token expires after 7 days (configured in auth.py).
+    """
+    _invalid = HTTPException(
+        status_code=401,
+        detail="Invalid email or password.",
+    )
+
+    user = db.get_user_by_email(body.email)
+    if user is None:
+        raise _invalid
+
+    if not auth.verify_password(body.password, user["hashed_password"]):
+        raise _invalid
+
+    token = auth.create_token(user["id"])
+    return {"access_token": token, "token_type": "bearer"}
 
 
 # ── Financial state ───────────────────────────────────────────────────────────
