@@ -5,7 +5,12 @@ Uses db_connection.get_connection() for all queries — works with
 SQLite locally and PostgreSQL in production. Switch by setting the
 DATABASE_URL environment variable (see .env.example).
 
-All reads and writes go through this module. No other module issues raw SQL.
+Every function below dispatches to db_pg.py when db_connection.is_postgres()
+is True — the SQL in this file (PRAGMA, `?` placeholders, INSERT OR IGNORE/
+REPLACE, cur.lastrowid) is SQLite-only syntax and will not run against
+PostgreSQL. db_pg.py holds the PostgreSQL-compatible equivalent of every
+function here. No other module issues raw SQL.
+
 Uses context managers throughout so connections are always closed safely.
 
 Tables
@@ -27,12 +32,26 @@ import sqlite3   # kept for init_db migration (PRAGMA is SQLite-only)
 import os
 from model import Job, Expense
 import db_connection
-from db_connection import get_connection
+import db_pg
+from db_connection import get_connection, is_postgres
 from utils import canon_name
 
 
 def init_db() -> None:
-    """Create tables if they don't exist. Migrates old schema automatically."""
+    """Create tables if they don't exist. Migrates old schema automatically.
+
+    Under PostgreSQL, table creation already happened in db_pg.init_db()
+    (called once at API startup) — the SQLite-specific migrations below
+    (PRAGMA, ALTER TABLE variants) don't apply to a fresh Postgres schema,
+    so we just re-run db_pg.init_db() here too (idempotent, cheap) rather
+    than skip silently, since this function is called on every
+    FinancialState construction, not just at startup.
+    """
+    if is_postgres():
+        with get_connection() as conn:
+            db_pg.init_db(conn)
+        return
+
     with get_connection() as conn:
         c = conn.cursor()
 
@@ -214,13 +233,16 @@ def init_db() -> None:
 def insert_user(email: str, hashed_password: str) -> int:
     """Insert a new user and return their new id.
 
-    Raises sqlite3.IntegrityError if the email already exists.
-    The caller (register endpoint) catches this and returns HTTP 409.
-    The hashed_password must already be a bcrypt hash — never pass plain text.
+    Raises sqlite3.IntegrityError (or psycopg2.IntegrityError under
+    Postgres) if the email already exists. The caller (register endpoint)
+    catches this and returns HTTP 409. The hashed_password must already be
+    a bcrypt hash — never pass plain text.
     """
-    import datetime
-    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.insert_user(conn, email, hashed_password)
+        import datetime
+        created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         cur = conn.execute(
             "INSERT INTO users (email, hashed_password, created_at) VALUES (?, ?, ?)",
             (email.lower().strip(), hashed_password, created_at),
@@ -237,6 +259,8 @@ def get_user_by_email(email: str) -> dict | None:
     Email lookup is case-insensitive (stored lowercase).
     """
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.get_user_by_email(conn, email)
         row = conn.execute(
             "SELECT id, email, hashed_password, created_at FROM users WHERE email = ?",
             (email.lower().strip(),),
@@ -254,6 +278,8 @@ def get_user_by_id(user_id: int) -> dict | None:
     Used by get_current_user() to verify the token subject still exists.
     """
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.get_user_by_id(conn, user_id)
         row = conn.execute(
             "SELECT id, email, created_at FROM users WHERE id = ?",
             (user_id,),
@@ -266,6 +292,8 @@ def get_user_by_id(user_id: int) -> dict | None:
 def load_balance(user_id: int = 1) -> float:
     """Load the saved balance from settings for a specific user."""
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.load_balance(conn, user_id=user_id)
         row = conn.execute(
             "SELECT value FROM settings WHERE key = 'balance' AND user_id = ?",
             (user_id,)
@@ -276,6 +304,9 @@ def load_balance(user_id: int = 1) -> float:
 def save_balance(balance: float, user_id: int = 1) -> None:
     """Persist the current balance for a specific user."""
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.save_balance(conn, balance, user_id=user_id)
+            return
         conn.execute(
             "INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, 'balance', ?)",
             (user_id, balance)
@@ -286,6 +317,8 @@ def save_balance(balance: float, user_id: int = 1) -> None:
 def load_setting(key: str, default: float, user_id: int = 1) -> float:
     """Load a named setting for a user. Returns default if not found."""
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.load_setting(conn, key, default, user_id=user_id)
         row = conn.execute(
             "SELECT value FROM settings WHERE key = ? AND user_id = ?",
             (key, user_id)
@@ -296,6 +329,9 @@ def load_setting(key: str, default: float, user_id: int = 1) -> float:
 def save_setting(key: str, value: float, user_id: int = 1) -> None:
     """Persist a named setting for a user."""
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.save_setting(conn, key, value, user_id=user_id)
+            return
         conn.execute(
             "INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, ?, ?)",
             (user_id, key, value)
@@ -306,6 +342,8 @@ def save_setting(key: str, value: float, user_id: int = 1) -> None:
 def load_jobs(user_id: int = 1) -> list[Job]:
     """Load all jobs for a specific user."""
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.load_jobs(conn, user_id=user_id)
         rows = conn.execute(
             "SELECT name, amount, frequency FROM jobs WHERE user_id = ?",
             (user_id,)
@@ -316,6 +354,9 @@ def load_jobs(user_id: int = 1) -> list[Job]:
 def insert_job(job: Job, user_id: int = 1) -> None:
     """Insert a new job for a user. Ignores duplicates (name is UNIQUE)."""
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.insert_job(conn, job, user_id=user_id)
+            return
         conn.execute(
             "INSERT OR IGNORE INTO jobs (name, amount, frequency, user_id) VALUES (?, ?, ?, ?)",
             (job.name, job.amount, job.frequency, user_id)
@@ -326,6 +367,9 @@ def insert_job(job: Job, user_id: int = 1) -> None:
 def remove_job(name: str, user_id: int = 1) -> None:
     """Delete a job by name for a specific user."""
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.remove_job(conn, name, user_id=user_id)
+            return
         conn.execute("DELETE FROM jobs WHERE name = ? AND user_id = ?", (name, user_id))
         conn.commit()
 
@@ -363,6 +407,9 @@ def dedup_jobs() -> None:
     Canonical-deduplicate jobs table on startup, scoped per user.
     'admissions', 'Admissions', 'admission' → one 'Admissions' entry.
     Keeps the row with the highest amount. Never touches another user's rows.
+
+    Desktop-app-only (called from main.py) — not part of the web API's
+    request path, so this stays SQLite-only.
     """
     with get_connection() as conn:
         rows = conn.execute(
@@ -390,6 +437,9 @@ def dedup_expenses() -> None:
     Canonical-deduplicate expenses table on startup, scoped per user.
     'rent', 'Rent', 'rents' → one 'Rent' entry (highest amount kept).
     Never touches another user's rows.
+
+    Desktop-app-only (called from main.py) — not part of the web API's
+    request path, so this stays SQLite-only.
     """
     with get_connection() as conn:
         rows = conn.execute(
@@ -417,6 +467,9 @@ def update_events_rate(job_title: str, rate: float, threshold: float = 0.82,
     Set hourly_rate on all Work events for a specific user whose canonical
     name matches job_title. 'admission', 'Admissions', 'admissions' all update
     together — but only for the given user (defaults to 1 for the desktop app).
+
+    Desktop-app-only (called from page_schedule.py / schedule_service.py) —
+    not part of the web API's request path, so this stays SQLite-only.
     """
     target_canon = _canon_db(job_title)
     with get_connection() as conn:
@@ -437,6 +490,9 @@ def update_events_rate(job_title: str, rate: float, threshold: float = 0.82,
 def update_job_amount(name: str, amount: float, user_id: int = 1) -> None:
     """Update the income amount for an existing job (used by schedule sync)."""
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.update_job_amount(conn, name, amount, user_id=user_id)
+            return
         conn.execute(
             "UPDATE jobs SET amount = ? WHERE name = ? AND user_id = ?",
             (amount, name, user_id)
@@ -447,6 +503,8 @@ def update_job_amount(name: str, amount: float, user_id: int = 1) -> None:
 def load_expenses(user_id: int = 1) -> list[Expense]:
     """Load all expenses for a specific user."""
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.load_expenses(conn, user_id=user_id)
         rows = conn.execute(
             "SELECT name, amount, category, date, frequency FROM expenses WHERE user_id = ?",
             (user_id,)
@@ -458,6 +516,9 @@ def load_expenses(user_id: int = 1) -> list[Expense]:
 def insert_expense(expense: Expense, user_id: int = 1) -> None:
     """Insert a new expense for a user. Ignores duplicates (name is UNIQUE)."""
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.insert_expense(conn, expense, user_id=user_id)
+            return
         conn.execute(
             "INSERT OR IGNORE INTO expenses (name, amount, category, date, frequency, user_id) "
             "VALUES (?, ?, ?, ?, ?, ?)",
@@ -470,6 +531,9 @@ def insert_expense(expense: Expense, user_id: int = 1) -> None:
 def remove_expense(name: str, user_id: int = 1) -> None:
     """Delete an expense by name for a specific user."""
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.remove_expense(conn, name, user_id=user_id)
+            return
         conn.execute(
             "DELETE FROM expenses WHERE name = ? AND user_id = ?",
             (name, user_id)
@@ -487,9 +551,12 @@ def record_snapshot(
     Save today's financial snapshot to the history table for a specific user.
     One record per day — if today already exists, it updates it.
     """
-    import datetime
-    today = datetime.date.today().isoformat()
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.record_snapshot(conn, balance, income, expenses, net, user_id=user_id)
+            return
+        import datetime
+        today = datetime.date.today().isoformat()
         conn.execute("""
             INSERT INTO history (date, balance, income_weekly, expenses_weekly, net_weekly, user_id)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -506,6 +573,8 @@ def record_snapshot(
 def load_history(user_id: int = 1) -> list[dict]:
     """Return all history snapshots for a user, ordered by date ascending."""
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.load_history(conn, user_id=user_id)
         rows = conn.execute("""
             SELECT date, balance, income_weekly, expenses_weekly, net_weekly
             FROM history WHERE user_id = ? ORDER BY date ASC
@@ -520,7 +589,12 @@ def load_history(user_id: int = 1) -> list[dict]:
 # ── Schedule / Events ────────────────────────────────────────────────────────
 
 def init_events_table() -> None:
-    """Create the events table if it does not yet exist, and migrate schema."""
+    """Create the events table if it does not yet exist, and migrate schema.
+
+    Only called from the SQLite branch of api.py's startup — under
+    Postgres, db_pg.init_db() already creates the events table, so this
+    never runs there.
+    """
     with get_connection() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS events (
@@ -553,8 +627,10 @@ def add_event(event, user_id: int = 1) -> int:
     shift_date is stored when present; defaults to '' for legacy callers.
     user_id scopes the event to a specific account (default 1 for desktop app).
     """
-    shift_date = getattr(event, "shift_date", "") or ""
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.add_event(conn, event, user_id=user_id)
+        shift_date = getattr(event, "shift_date", "") or ""
         cur = conn.execute(
             """INSERT INTO events
                    (title, category, day, start_time, end_time,
@@ -577,6 +653,8 @@ def get_events(day: str | None = None, user_id: int = 1) -> list:
     """
     from schedule_event import ScheduleEvent
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.get_events(conn, day=day, user_id=user_id)
         if day:
             rows = conn.execute(
                 "SELECT id, title, category, day, start_time, end_time, "
@@ -621,6 +699,8 @@ def get_events_for_week(week_start, user_id: int = 1) -> list:
     end_s    = week_end.isoformat()
 
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.get_events_for_week(conn, week_start, user_id=user_id)
         rows = conn.execute(
             "SELECT id, title, category, day, start_time, end_time, "
             "hourly_rate, notes, shift_date "
@@ -651,9 +731,12 @@ def update_event(event_id: int, **fields) -> None:
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
-    cols = ", ".join(f"{k} = ?" for k in updates)
-    vals = list(updates.values()) + [event_id]
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.update_event(conn, event_id, **updates)
+            return
+        cols = ", ".join(f"{k} = ?" for k in updates)
+        vals = list(updates.values()) + [event_id]
         conn.execute(f"UPDATE events SET {cols} WHERE id = ?", vals)
         conn.commit()
 
@@ -666,6 +749,8 @@ def get_events_for_date(date_str: str, user_id: int = 1) -> list:
     """
     from schedule_event import ScheduleEvent
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.get_events_for_date(conn, date_str, user_id=user_id)
         rows = conn.execute(
             "SELECT id, title, category, day, start_time, end_time, "
             "hourly_rate, notes, shift_date "
@@ -693,6 +778,8 @@ def get_events_for_date_range(start_str: str, end_str: str, user_id: int = 1) ->
     """
     from schedule_event import ScheduleEvent
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.get_events_for_date_range(conn, start_str, end_str, user_id=user_id)
         rows = conn.execute(
             "SELECT id, title, category, day, start_time, end_time, "
             "hourly_rate, notes, shift_date "
@@ -729,6 +816,9 @@ def get_events_for_month(year: int, month: int, user_id: int = 1) -> list:
 def delete_event_by_id(event_id: int) -> None:
     """Delete an event by its primary key."""
     with get_connection() as conn:
+        if is_postgres():
+            db_pg.delete_event_by_id(conn, event_id)
+            return
         conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
         conn.commit()
 
@@ -741,6 +831,8 @@ def get_event_by_id(event_id: int, user_id: int | None = None):
     """
     from schedule_event import ScheduleEvent
     with get_connection() as conn:
+        if is_postgres():
+            return db_pg.get_event_by_id(conn, event_id, user_id=user_id)
         if user_id is not None:
             row = conn.execute(
                 "SELECT id, title, category, day, start_time, end_time, "
@@ -770,7 +862,7 @@ def get_event_by_id(event_id: int, user_id: int | None = None):
 def backup_database() -> str:
     """
     Copy finance.db to backup_YYYY-MM-DD.db in the same folder.
-    Returns the path of the backup file.
+    Returns the path of the backup file. SQLite-only (desktop app).
     """
     import datetime, shutil
     today   = datetime.date.today().isoformat()
