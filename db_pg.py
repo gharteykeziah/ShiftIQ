@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE TABLE IF NOT EXISTS history (
     id              SERIAL PRIMARY KEY,
-    date            TEXT,
+    date            TEXT UNIQUE,
     balance         REAL,
     income_weekly   REAL,
     expenses_weekly REAL,

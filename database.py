@@ -121,10 +121,12 @@ def init_db() -> None:
             c.execute("ALTER TABLE expenses ADD COLUMN frequency TEXT DEFAULT 'Monthly'")
 
         # History table for trend tracking
+        # date remains UNIQUE so ON CONFLICT(date) in record_snapshot() works.
+        # Per-user date uniqueness is a Phase 3 migration.
         c.execute("""
             CREATE TABLE IF NOT EXISTS history (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                date            TEXT,
+                date            TEXT UNIQUE,
                 balance         REAL,
                 income_weekly   REAL,
                 expenses_weekly REAL,
