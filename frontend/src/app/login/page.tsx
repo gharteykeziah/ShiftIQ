@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -48,36 +49,43 @@ export default function LoginPage() {
         <h1 className="text-3xl font-bold text-text">Log In</h1>
         <p className="mt-2 text-sm text-muted">Welcome back.</p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          <Input
-            label="Email address"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <Input
-            label="Password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+        {/* Inputs use a light grey fill (bg-bg) designed to sit on a white
+            card — placed directly on this page's own grey background they
+            were invisible (grey-on-grey, no visible field outline). Wrapping
+            the form in a Card restores the contrast, matching every other
+            form in the app. */}
+        <Card className="mt-8">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Email address"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <Input
+              label="Password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
 
-          {error && (
-            <p role="alert" className="text-sm text-danger">
-              {error}
-            </p>
-          )}
+            {error && (
+              <p role="alert" className="text-sm text-danger">
+                {error}
+              </p>
+            )}
 
-          <Button type="submit" size="lg" className="w-full" isLoading={isSubmitting}>
-            Log in
-          </Button>
-        </form>
+            <Button type="submit" size="lg" className="w-full" isLoading={isSubmitting}>
+              Log in
+            </Button>
+          </form>
+        </Card>
 
         <p className="mt-6 text-center text-sm text-muted">
           Don&apos;t have an account?{" "}
