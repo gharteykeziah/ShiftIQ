@@ -300,6 +300,81 @@ class LoginIn(BaseModel):
         return v.lower().strip()
 
 
+_VALID_CATEGORIES = {"Work", "Class", "Study", "Meeting", "Personal", "Other"}
+_VALID_DAYS = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+
+
+class ShiftIn(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+    category: str = "Work"
+    day: str = "Monday"
+    start_time: str = "09:00"
+    end_time: str = "17:00"
+    hourly_rate: float = Field(default=0.0, ge=0, le=10_000)
+    notes: str = Field(default="", max_length=500)
+    shift_date: str = ""
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def sanitize_title(cls, v: str) -> str:
+        v = _strip_html(str(v))
+        if not v:
+            raise ValueError("title cannot be empty")
+        return v
+
+    @field_validator("notes", mode="before")
+    @classmethod
+    def sanitize_notes(cls, v: str) -> str:
+        return _strip_html(str(v))
+
+    @field_validator("category")
+    @classmethod
+    def validate_category(cls, v: str) -> str:
+        if v not in _VALID_CATEGORIES:
+            raise ValueError(f"category must be one of {sorted(_VALID_CATEGORIES)}")
+        return v
+
+    @field_validator("day")
+    @classmethod
+    def validate_day(cls, v: str) -> str:
+        if v not in _VALID_DAYS:
+            raise ValueError(f"day must be one of {sorted(_VALID_DAYS)}")
+        return v
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def validate_time(cls, v: str) -> str:
+        import re as _re
+        if not _re.match(r'^\d{2}:\d{2}$', v):
+            raise ValueError("time must be in HH:MM format")
+        h, m = int(v[:2]), int(v[3:])
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            raise ValueError("invalid time value")
+        return v
+
+    @field_validator("shift_date")
+    @classmethod
+    def validate_shift_date(cls, v: str) -> str:
+        if v:
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError("shift_date must be in YYYY-MM-DD format")
+        return v
+
+
+class ShiftOut(BaseModel):
+    id: int
+    title: str
+    category: str
+    day: str
+    start_time: str
+    end_time: str
+    hourly_rate: float
+    notes: str
+    shift_date: str
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
@@ -665,6 +740,104 @@ def simulate_monte_carlo(request: Request, req: MonteCarloRequest, current_user:
 def simulate_what_if(request: Request, req: WhatIfRequest, current_user: dict = Depends(get_current_user)) -> dict:
     state = _get_state(current_user["id"])
     return simulate_whatif(state, req.description, req.dollar_change, req.weeks)
+
+
+# ── Shifts (CRUD) ─────────────────────────────────────────────────────────────
+
+@app.get("/api/shifts", response_model=list[ShiftOut])
+@limiter.limit("60/minute")
+def list_shifts(
+    request: Request,
+    day: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+) -> list[ShiftOut]:
+    """Return all shifts for the current user. Optional ?day= filter (e.g. Monday)."""
+    if day and day not in _VALID_DAYS:
+        raise HTTPException(status_code=400, detail=f"day must be one of {sorted(_VALID_DAYS)}")
+    events = db.get_events(day=day, user_id=current_user["id"])
+    return [
+        ShiftOut(
+            id=e.id, title=e.title, category=e.category, day=e.day,
+            start_time=e.start_time, end_time=e.end_time,
+            hourly_rate=e.hourly_rate, notes=e.notes, shift_date=e.shift_date,
+        )
+        for e in events
+    ]
+
+
+@app.post("/api/shifts", response_model=ShiftOut, status_code=201)
+@limiter.limit("30/minute")
+def create_shift(
+    request: Request,
+    shift_in: ShiftIn,
+    current_user: dict = Depends(get_current_user),
+) -> ShiftOut:
+    """Create a new shift for the current user."""
+    from schedule_event import ScheduleEvent
+    event = ScheduleEvent(
+        title=shift_in.title, category=shift_in.category, day=shift_in.day,
+        start_time=shift_in.start_time, end_time=shift_in.end_time,
+        hourly_rate=shift_in.hourly_rate, notes=shift_in.notes,
+        shift_date=shift_in.shift_date,
+    )
+    ok, msg = event.validate()
+    if not ok:
+        raise HTTPException(status_code=422, detail=msg)
+    new_id = db.add_event(event, user_id=current_user["id"])
+    return ShiftOut(
+        id=new_id, title=event.title, category=event.category, day=event.day,
+        start_time=event.start_time, end_time=event.end_time,
+        hourly_rate=event.hourly_rate, notes=event.notes, shift_date=event.shift_date,
+    )
+
+
+@app.put("/api/shifts/{shift_id}", response_model=ShiftOut)
+@limiter.limit("30/minute")
+def update_shift(
+    request: Request,
+    shift_id: int,
+    shift_in: ShiftIn,
+    current_user: dict = Depends(get_current_user),
+) -> ShiftOut:
+    """Update a shift. Returns 404 if the shift doesn't exist or belongs to another user."""
+    existing = db.get_event_by_id(shift_id, user_id=current_user["id"])
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Shift not found.")
+    from schedule_event import ScheduleEvent
+    event = ScheduleEvent(
+        title=shift_in.title, category=shift_in.category, day=shift_in.day,
+        start_time=shift_in.start_time, end_time=shift_in.end_time,
+        hourly_rate=shift_in.hourly_rate, notes=shift_in.notes,
+        shift_date=shift_in.shift_date,
+    )
+    ok, msg = event.validate()
+    if not ok:
+        raise HTTPException(status_code=422, detail=msg)
+    db.update_event(
+        shift_id,
+        title=event.title, category=event.category, day=event.day,
+        start_time=event.start_time, end_time=event.end_time,
+        hourly_rate=event.hourly_rate, notes=event.notes, shift_date=event.shift_date,
+    )
+    return ShiftOut(
+        id=shift_id, title=event.title, category=event.category, day=event.day,
+        start_time=event.start_time, end_time=event.end_time,
+        hourly_rate=event.hourly_rate, notes=event.notes, shift_date=event.shift_date,
+    )
+
+
+@app.delete("/api/shifts/{shift_id}", status_code=204)
+@limiter.limit("30/minute")
+def delete_shift(
+    request: Request,
+    shift_id: int,
+    current_user: dict = Depends(get_current_user),
+) -> None:
+    """Delete a shift. Returns 404 if it doesn't exist or belongs to another user."""
+    existing = db.get_event_by_id(shift_id, user_id=current_user["id"])
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Shift not found.")
+    db.delete_event_by_id(shift_id)
 
 
 # ── Optimizer ─────────────────────────────────────────────────────────────────

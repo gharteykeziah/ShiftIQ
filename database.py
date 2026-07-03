@@ -733,6 +733,38 @@ def delete_event_by_id(event_id: int) -> None:
         conn.commit()
 
 
+def get_event_by_id(event_id: int, user_id: int | None = None):
+    """
+    Return a ScheduleEvent by primary key, or None if not found.
+    If user_id is provided, only returns the event if it belongs to that user
+    (used by the API to enforce ownership before PUT/DELETE).
+    """
+    from schedule_event import ScheduleEvent
+    with get_connection() as conn:
+        if user_id is not None:
+            row = conn.execute(
+                "SELECT id, title, category, day, start_time, end_time, "
+                "hourly_rate, notes, shift_date "
+                "FROM events WHERE id = ? AND user_id = ?",
+                (event_id, user_id),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id, title, category, day, start_time, end_time, "
+                "hourly_rate, notes, shift_date "
+                "FROM events WHERE id = ?",
+                (event_id,),
+            ).fetchone()
+    if row is None:
+        return None
+    return ScheduleEvent(
+        title=row[1], category=row[2], day=row[3],
+        start_time=row[4], end_time=row[5],
+        hourly_rate=row[6], notes=row[7], id=row[0],
+        shift_date=row[8] if len(row) > 8 else "",
+    )
+
+
 # ── Database Backup ───────────────────────────────────────────────────────────
 
 def backup_database() -> str:

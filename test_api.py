@@ -541,6 +541,118 @@ class TestOptimizer:
         assert data["total_hours"] <= 20
 
 
+# ── Shifts CRUD ───────────────────────────────────────────────────────────────
+
+class TestShifts:
+
+    _SHIFT = {
+        "title": "Barista",
+        "category": "Work",
+        "day": "Monday",
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "hourly_rate": 15.0,
+        "notes": "",
+        "shift_date": "2026-07-07",
+    }
+
+    def test_create_shift_returns_201(self, authed_client):
+        r = authed_client.post("/api/shifts", json=self._SHIFT)
+        assert r.status_code == 201
+        data = r.json()
+        assert data["title"] == "Barista"
+        assert data["id"] > 0
+
+    def test_list_shifts_includes_created(self, authed_client):
+        authed_client.post("/api/shifts", json=self._SHIFT)
+        r = authed_client.get("/api/shifts")
+        assert r.status_code == 200
+        titles = [s["title"] for s in r.json()]
+        assert "Barista" in titles
+
+    def test_list_shifts_day_filter(self, authed_client):
+        authed_client.post("/api/shifts", json=self._SHIFT)  # Monday
+        r = authed_client.get("/api/shifts?day=Tuesday")
+        assert r.status_code == 200
+        for s in r.json():
+            assert s["day"] == "Tuesday"
+
+    def test_update_shift(self, authed_client):
+        r = authed_client.post("/api/shifts", json=self._SHIFT)
+        shift_id = r.json()["id"]
+        updated = {**self._SHIFT, "title": "Head Barista", "hourly_rate": 18.0}
+        r = authed_client.put(f"/api/shifts/{shift_id}", json=updated)
+        assert r.status_code == 200
+        assert r.json()["title"] == "Head Barista"
+        assert r.json()["hourly_rate"] == 18.0
+
+    def test_delete_shift(self, authed_client):
+        r = authed_client.post("/api/shifts", json=self._SHIFT)
+        shift_id = r.json()["id"]
+        r = authed_client.delete(f"/api/shifts/{shift_id}")
+        assert r.status_code == 204
+        # Confirm it's gone
+        shifts = authed_client.get("/api/shifts").json()
+        assert all(s["id"] != shift_id for s in shifts)
+
+    def test_update_nonexistent_shift_returns_404(self, authed_client):
+        r = authed_client.put("/api/shifts/999999", json=self._SHIFT)
+        assert r.status_code == 404
+
+    def test_delete_nonexistent_shift_returns_404(self, authed_client):
+        r = authed_client.delete("/api/shifts/999999")
+        assert r.status_code == 404
+
+    def test_shift_isolation_between_users(self, client):
+        """User B cannot update or delete User A's shifts."""
+        # Register and create a shift as User A
+        client.post("/api/auth/register",
+                    json={"email": "shiftsA@example.com", "password": "password123"})
+        r = client.post("/api/auth/login",
+                        json={"email": "shiftsA@example.com", "password": "password123"})
+        token_a = r.json()["access_token"]
+        r = client.post("/api/shifts", json=self._SHIFT,
+                        headers={"Authorization": f"Bearer {token_a}"})
+        shift_id = r.json()["id"]
+
+        # Register as User B and try to delete User A's shift
+        client.post("/api/auth/register",
+                    json={"email": "shiftsB@example.com", "password": "password123"})
+        r = client.post("/api/auth/login",
+                        json={"email": "shiftsB@example.com", "password": "password123"})
+        token_b = r.json()["access_token"]
+        r = client.delete(f"/api/shifts/{shift_id}",
+                          headers={"Authorization": f"Bearer {token_b}"})
+        assert r.status_code == 404  # not found — B can't see A's shift
+
+    def test_invalid_category_rejected(self, authed_client):
+        bad = {**self._SHIFT, "category": "InvalidCat"}
+        r = authed_client.post("/api/shifts", json=bad)
+        assert r.status_code == 422
+
+    def test_invalid_time_format_rejected(self, authed_client):
+        bad = {**self._SHIFT, "start_time": "9am"}
+        r = authed_client.post("/api/shifts", json=bad)
+        assert r.status_code == 422
+
+    def test_zero_duration_shift_rejected(self, authed_client):
+        bad = {**self._SHIFT, "start_time": "09:00", "end_time": "09:00"}
+        r = authed_client.post("/api/shifts", json=bad)
+        assert r.status_code == 422
+
+    def test_overnight_shift_accepted(self, authed_client):
+        """end < start is valid (crosses midnight)."""
+        night = {**self._SHIFT, "start_time": "22:00", "end_time": "06:00"}
+        r = authed_client.post("/api/shifts", json=night)
+        assert r.status_code == 201
+
+    def test_xss_title_stripped(self, authed_client):
+        xss = {**self._SHIFT, "title": "<script>alert(1)</script>Barista"}
+        r = authed_client.post("/api/shifts", json=xss)
+        assert r.status_code == 201
+        assert "<script>" not in r.json()["title"]
+
+
 # ── Step 17: Unauthorized access — every protected endpoint returns 401 ───────
 
 class TestUnauthorizedAccess:
@@ -560,21 +672,29 @@ class TestUnauthorizedAccess:
         "/api/auth/me",
         "/api/analytics/income",
         "/api/analytics/efficiency",
+        "/api/shifts",
     ]
 
     PROTECTED_PUTS = [
         ("/api/balance", {"amount": 100}),
+        ("/api/shifts/1", {"title": "X", "category": "Work", "day": "Monday",
+                           "start_time": "09:00", "end_time": "17:00",
+                           "hourly_rate": 0, "notes": "", "shift_date": ""}),
     ]
 
     PROTECTED_DELETES = [
         "/api/jobs/Ghost",
         "/api/expenses/Ghost",
+        "/api/shifts/1",
     ]
 
     PROTECTED_POSTS = [
         ("/api/jobs",        {"name": "X", "amount": 100, "frequency": "Weekly"}),
         ("/api/expenses",    {"name": "X", "amount": 100, "category": "Food",
                               "date": "2026-01-01", "frequency": "Monthly"}),
+        ("/api/shifts",      {"title": "X", "category": "Work", "day": "Monday",
+                              "start_time": "09:00", "end_time": "17:00",
+                              "hourly_rate": 0, "notes": "", "shift_date": ""}),
         ("/api/simulate/monte-carlo", {"weeks": 4, "n": 10}),
         ("/api/simulate/whatif",      {"description": "Test",
                                        "dollar_change": -50, "weeks": 4}),
