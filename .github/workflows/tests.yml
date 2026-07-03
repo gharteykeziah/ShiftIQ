@@ -32,7 +32,7 @@ jobs:
           pip install numpy
 
       - name: Install API dependencies
-        run: pip install fastapi "uvicorn[standard]" pydantic httpx slowapi "passlib[bcrypt]" "python-jose[cryptography]"
+        run: pip install -r requirements-api.txt
 
       - name: Secret scan (no hardcoded credentials)
         run: python scripts/check_secrets.py
