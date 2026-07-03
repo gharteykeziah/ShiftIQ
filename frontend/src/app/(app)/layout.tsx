@@ -5,15 +5,42 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Button } from "@/components/ui/Button";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 
 // Shared shell for every real page (Dashboard, Jobs, Shifts, Expenses,
 // Simulation, Goals) — auth is checked once here rather than per-page.
 // The (app) route group name doesn't appear in the URL, so pages inside
 // resolve to clean paths like /dashboard, /jobs, etc.
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { user, isLoading } = useRequireAuth();
+  const { user, isLoading, authCheckError, retryAuthCheck } = useRequireAuth();
 
-  if (isLoading || !user) {
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg px-6">
+        <div className="w-full max-w-sm space-y-3">
+          <Skeleton className="h-6 w-2/3" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (authCheckError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg px-6">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle>Reconnecting&hellip;</CardTitle>
+            <CardDescription>{authCheckError}</CardDescription>
+          </CardHeader>
+          <Button onClick={retryAuthCheck}>Try again</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg px-6">
         <div className="w-full max-w-sm space-y-3">
