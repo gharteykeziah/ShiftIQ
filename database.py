@@ -41,7 +41,8 @@ def init_db() -> None:
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
                 name      TEXT UNIQUE,
                 amount    REAL,
-                frequency TEXT DEFAULT 'Weekly'
+                frequency TEXT DEFAULT 'Weekly',
+                user_id   INTEGER DEFAULT 1
             )
         """)
 
@@ -52,16 +53,43 @@ def init_db() -> None:
                 amount    REAL,
                 category  TEXT,
                 date      TEXT,
-                frequency TEXT DEFAULT 'Monthly'
+                frequency TEXT DEFAULT 'Monthly',
+                user_id   INTEGER DEFAULT 1
             )
         """)
 
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS settings (
-                key   TEXT PRIMARY KEY,
-                value REAL
-            )
-        """)
+        # settings uses a composite primary key (user_id, key) so each user
+        # has their own independent balance and other settings.
+        # Detect old single-column schema and migrate transparently.
+        settings_cols = [r[1] for r in c.execute("PRAGMA table_info(settings)").fetchall()]
+        if "user_id" not in settings_cols and settings_cols:
+            # Old schema exists — recreate with composite PK, preserving data
+            c.execute("""
+                CREATE TABLE settings_new (
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    key     TEXT    NOT NULL,
+                    value   REAL,
+                    PRIMARY KEY (user_id, key)
+                )
+            """)
+            c.execute("INSERT INTO settings_new (user_id, key, value) SELECT 1, key, value FROM settings")
+            c.execute("DROP TABLE settings")
+            c.execute("ALTER TABLE settings_new RENAME TO settings")
+        elif not settings_cols:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    key     TEXT    NOT NULL,
+                    value   REAL,
+                    PRIMARY KEY (user_id, key)
+                )
+            """)
+
+        # Migrate: add user_id to jobs if not present
+        cols = [r[1] for r in c.execute("PRAGMA table_info(jobs)").fetchall()]
+        if "user_id" not in cols and cols:
+            c.execute("ALTER TABLE jobs ADD COLUMN user_id INTEGER DEFAULT 1")
+            c.execute("UPDATE jobs SET user_id = 1 WHERE user_id IS NULL")
 
         # Migrate old jobs table (hourly_rate + hours_per_week → amount + frequency)
         cols = [r[1] for r in c.execute("PRAGMA table_info(jobs)").fetchall()]
@@ -81,6 +109,12 @@ def init_db() -> None:
             c.execute("DROP TABLE jobs")
             c.execute("ALTER TABLE jobs_new RENAME TO jobs")
 
+        # Migrate: add user_id to expenses if not present
+        cols = [r[1] for r in c.execute("PRAGMA table_info(expenses)").fetchall()]
+        if "user_id" not in cols and cols:
+            c.execute("ALTER TABLE expenses ADD COLUMN user_id INTEGER DEFAULT 1")
+            c.execute("UPDATE expenses SET user_id = 1 WHERE user_id IS NULL")
+
         # Migrate old expenses table (no frequency column)
         cols = [r[1] for r in c.execute("PRAGMA table_info(expenses)").fetchall()]
         if "frequency" not in cols:
@@ -89,14 +123,21 @@ def init_db() -> None:
         # History table for trend tracking
         c.execute("""
             CREATE TABLE IF NOT EXISTS history (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                date          TEXT UNIQUE,
-                balance       REAL,
-                income_weekly REAL,
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                date            TEXT,
+                balance         REAL,
+                income_weekly   REAL,
                 expenses_weekly REAL,
-                net_weekly    REAL
+                net_weekly      REAL,
+                user_id         INTEGER DEFAULT 1
             )
         """)
+
+        # Migrate: add user_id to history if not present
+        hist_cols = [r[1] for r in c.execute("PRAGMA table_info(history)").fetchall()]
+        if "user_id" not in hist_cols and hist_cols:
+            c.execute("ALTER TABLE history ADD COLUMN user_id INTEGER DEFAULT 1")
+            c.execute("UPDATE history SET user_id = 1 WHERE user_id IS NULL")
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -107,7 +148,7 @@ def init_db() -> None:
             )
         """)
 
-        c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('balance', 0)")
+        c.execute("INSERT OR IGNORE INTO settings (user_id, key, value) VALUES (1, 'balance', 0)")
         conn.commit()
 
 

@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     id        SERIAL PRIMARY KEY,
     name      TEXT UNIQUE,
     amount    REAL,
-    frequency TEXT DEFAULT 'Weekly'
+    frequency TEXT DEFAULT 'Weekly',
+    user_id   INTEGER DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS expenses (
@@ -28,21 +29,25 @@ CREATE TABLE IF NOT EXISTS expenses (
     amount    REAL,
     category  TEXT,
     date      TEXT,
-    frequency TEXT DEFAULT 'Monthly'
+    frequency TEXT DEFAULT 'Monthly',
+    user_id   INTEGER DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS settings (
-    key   TEXT PRIMARY KEY,
-    value REAL
+    user_id INTEGER NOT NULL DEFAULT 1,
+    key     TEXT    NOT NULL,
+    value   REAL,
+    PRIMARY KEY (user_id, key)
 );
 
 CREATE TABLE IF NOT EXISTS history (
     id              SERIAL PRIMARY KEY,
-    date            TEXT UNIQUE,
+    date            TEXT,
     balance         REAL,
     income_weekly   REAL,
     expenses_weekly REAL,
-    net_weekly      REAL
+    net_weekly      REAL,
+    user_id         INTEGER DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -57,7 +62,7 @@ CREATE TABLE IF NOT EXISTS events (
     shift_date  TEXT    NOT NULL DEFAULT ''
 );
 
-INSERT INTO settings (key, value) VALUES ('balance', 0) ON CONFLICT DO NOTHING;
+INSERT INTO settings (user_id, key, value) VALUES (1, 'balance', 0) ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS users (
     id              SERIAL PRIMARY KEY,
