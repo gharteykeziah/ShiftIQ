@@ -125,10 +125,14 @@ def _startup() -> None:
         db.init_events_table()
 
 
-def _get_state() -> FinancialState:
-    """Fresh FinancialState per request — sqlite is the single source of
-    truth, so there is no in-memory state to keep consistent across requests."""
-    return FinancialState()
+def _get_state(user_id: int = 1) -> FinancialState:
+    """Fresh FinancialState per request, scoped to the given user.
+
+    SQLite is the single source of truth, so there is no in-memory state
+    to keep consistent across requests. user_id defaults to 1 so the
+    desktop app (which never passes a token) still works unchanged.
+    """
+    return FinancialState(user_id=user_id)
 
 
 # ── Input sanitization helper ─────────────────────────────────────────────────
@@ -406,8 +410,8 @@ def me(request: Request, current_user: dict = Depends(get_current_user)) -> dict
 
 @app.get("/api/state", response_model=StateSummary)
 @limiter.limit("60/minute")
-def get_state_summary(request: Request) -> StateSummary:
-    state = _get_state()
+def get_state_summary(request: Request, current_user: dict = Depends(get_current_user)) -> StateSummary:
+    state = _get_state(current_user["id"])
     return StateSummary(
         balance=state.current_balance(),
         weekly_income=round(state.total_income_per_week(), 2),
@@ -423,9 +427,9 @@ def get_state_summary(request: Request) -> StateSummary:
 
 @app.put("/api/balance")
 @limiter.limit("30/minute")
-def update_balance(request: Request, body: BalanceIn) -> dict:
+def update_balance(request: Request, body: BalanceIn, current_user: dict = Depends(get_current_user)) -> dict:
     """Update the current saved balance."""
-    state = _get_state()
+    state = _get_state(current_user["id"])
     ok, message = state.set_balance(body.amount)
     if not ok:
         raise HTTPException(status_code=400, detail=message)
@@ -436,18 +440,18 @@ def update_balance(request: Request, body: BalanceIn) -> dict:
 
 @app.get("/api/jobs", response_model=list[JobOut])
 @limiter.limit("60/minute")
-def list_jobs(request: Request) -> list[JobOut]:
+def list_jobs(request: Request, current_user: dict = Depends(get_current_user)) -> list[JobOut]:
     return [
         JobOut(name=j.name, amount=j.amount, frequency=j.frequency,
                weekly_income=round(j.weekly_income(), 2))
-        for j in db.load_jobs()
+        for j in db.load_jobs(user_id=current_user["id"])
     ]
 
 
 @app.post("/api/jobs", response_model=JobOut, status_code=201)
 @limiter.limit("30/minute")
-def add_job(request: Request, job_in: JobIn) -> JobOut:
-    state = _get_state()
+def add_job(request: Request, job_in: JobIn, current_user: dict = Depends(get_current_user)) -> JobOut:
+    state = _get_state(current_user["id"])
     job = Job(job_in.name, job_in.amount, job_in.frequency)
     ok, message = state.add_job(job)
     if not ok:
@@ -458,9 +462,9 @@ def add_job(request: Request, job_in: JobIn) -> JobOut:
 
 @app.put("/api/jobs/{name}", response_model=JobOut)
 @limiter.limit("30/minute")
-def update_job(request: Request, name: str, job_in: JobIn) -> JobOut:
+def update_job(request: Request, name: str, job_in: JobIn, current_user: dict = Depends(get_current_user)) -> JobOut:
     """Update an existing job's amount and/or frequency by name."""
-    state = _get_state()
+    state = _get_state(current_user["id"])
     ok, message = state.delete_job(name)
     if not ok:
         raise HTTPException(status_code=404, detail=f"Job '{name}' not found.")
@@ -474,8 +478,8 @@ def update_job(request: Request, name: str, job_in: JobIn) -> JobOut:
 
 @app.delete("/api/jobs/{name}")
 @limiter.limit("30/minute")
-def delete_job(request: Request, name: str) -> dict:
-    state = _get_state()
+def delete_job(request: Request, name: str, current_user: dict = Depends(get_current_user)) -> dict:
+    state = _get_state(current_user["id"])
     ok, message = state.delete_job(name)
     if not ok:
         raise HTTPException(status_code=404, detail=message)
@@ -486,19 +490,19 @@ def delete_job(request: Request, name: str) -> dict:
 
 @app.get("/api/expenses", response_model=list[ExpenseOut])
 @limiter.limit("60/minute")
-def list_expenses(request: Request) -> list[ExpenseOut]:
+def list_expenses(request: Request, current_user: dict = Depends(get_current_user)) -> list[ExpenseOut]:
     return [
         ExpenseOut(name=e.name, amount=e.amount, category=e.category,
                    date=e.date, frequency=e.frequency,
                    weekly_amount=round(e.weekly_amount(), 2))
-        for e in db.load_expenses()
+        for e in db.load_expenses(user_id=current_user["id"])
     ]
 
 
 @app.post("/api/expenses", response_model=ExpenseOut, status_code=201)
 @limiter.limit("30/minute")
-def add_expense(request: Request, expense_in: ExpenseIn) -> ExpenseOut:
-    state = _get_state()
+def add_expense(request: Request, expense_in: ExpenseIn, current_user: dict = Depends(get_current_user)) -> ExpenseOut:
+    state = _get_state(current_user["id"])
     expense = Expense(expense_in.name, expense_in.amount, expense_in.category,
                        expense_in.date, expense_in.frequency)
     ok, message = state.add_expense(expense)
@@ -512,9 +516,9 @@ def add_expense(request: Request, expense_in: ExpenseIn) -> ExpenseOut:
 
 @app.put("/api/expenses/{name}", response_model=ExpenseOut)
 @limiter.limit("30/minute")
-def update_expense(request: Request, name: str, expense_in: ExpenseIn) -> ExpenseOut:
+def update_expense(request: Request, name: str, expense_in: ExpenseIn, current_user: dict = Depends(get_current_user)) -> ExpenseOut:
     """Update an existing expense by name."""
-    state = _get_state()
+    state = _get_state(current_user["id"])
     ok, message = state.delete_expense(name)
     if not ok:
         raise HTTPException(status_code=404, detail=f"Expense '{name}' not found.")
@@ -531,8 +535,8 @@ def update_expense(request: Request, name: str, expense_in: ExpenseIn) -> Expens
 
 @app.delete("/api/expenses/{name}")
 @limiter.limit("30/minute")
-def delete_expense(request: Request, name: str) -> dict:
-    state = _get_state()
+def delete_expense(request: Request, name: str, current_user: dict = Depends(get_current_user)) -> dict:
+    state = _get_state(current_user["id"])
     ok, message = state.delete_expense(name)
     if not ok:
         raise HTTPException(status_code=404, detail=message)
@@ -543,9 +547,9 @@ def delete_expense(request: Request, name: str) -> dict:
 
 @app.get("/api/history")
 @limiter.limit("60/minute")
-def get_history(request: Request) -> dict:
+def get_history(request: Request, current_user: dict = Depends(get_current_user)) -> dict:
     """Return all daily financial snapshots ordered by date ascending."""
-    snapshots = db.load_history()
+    snapshots = db.load_history(user_id=current_user["id"])
     return {
         "count": len(snapshots),
         "snapshots": snapshots,
@@ -556,9 +560,9 @@ def get_history(request: Request) -> dict:
 
 @app.get("/api/insights")
 @limiter.limit("60/minute")
-def get_insights(request: Request) -> dict:
+def get_insights(request: Request, current_user: dict = Depends(get_current_user)) -> dict:
     """Return plain-English financial insights generated by the InsightEngine."""
-    state = _get_state()
+    state = _get_state(current_user["id"])
     insights = _insight_engine.generate_insights(state)
     return {
         "health_score": state.financial_health_score(),
@@ -573,11 +577,11 @@ def get_insights(request: Request) -> dict:
 
 @app.get("/api/projection")
 @limiter.limit("60/minute")
-def get_projection(request: Request, weeks: int = 12) -> dict:
+def get_projection(request: Request, weeks: int = 12, current_user: dict = Depends(get_current_user)) -> dict:
     """Project balance week-by-week over the next N weeks (default 12)."""
     if weeks < 1 or weeks > 520:
         raise HTTPException(status_code=400, detail="weeks must be between 1 and 520.")
-    state = _get_state()
+    state = _get_state(current_user["id"])
     timeline = [
         {"week": w, "balance": round(state.project_balance(w), 2)}
         for w in range(1, weeks + 1)
@@ -594,7 +598,7 @@ def get_projection(request: Request, weeks: int = 12) -> dict:
 
 @app.get("/api/analytics/income")
 @limiter.limit("60/minute")
-def analytics_income(request: Request) -> dict:
+def analytics_income(request: Request, current_user: dict = Depends(get_current_user)) -> dict:
     events = db.get_events()
     groups = sa.income_by_job(events)
     return {
@@ -609,7 +613,7 @@ def analytics_income(request: Request) -> dict:
 
 @app.get("/api/analytics/efficiency")
 @limiter.limit("60/minute")
-def analytics_efficiency(request: Request) -> list[dict]:
+def analytics_efficiency(request: Request, current_user: dict = Depends(get_current_user)) -> list[dict]:
     events = db.get_events()
     report = sa.job_efficiency_report(events)
     return [
@@ -627,8 +631,8 @@ def analytics_efficiency(request: Request) -> list[dict]:
 
 @app.post("/api/simulate/monte-carlo")
 @limiter.limit("10/minute")
-def simulate_monte_carlo(request: Request, req: MonteCarloRequest) -> dict:
-    state = _get_state()
+def simulate_monte_carlo(request: Request, req: MonteCarloRequest, current_user: dict = Depends(get_current_user)) -> dict:
+    state = _get_state(current_user["id"])
     result = run_monte_carlo(state, weeks=req.weeks, n=req.n)
     result.pop("ending_balances", None)  # large array — omit from default JSON response
     return result
@@ -636,8 +640,8 @@ def simulate_monte_carlo(request: Request, req: MonteCarloRequest) -> dict:
 
 @app.post("/api/simulate/whatif")
 @limiter.limit("20/minute")
-def simulate_what_if(request: Request, req: WhatIfRequest) -> dict:
-    state = _get_state()
+def simulate_what_if(request: Request, req: WhatIfRequest, current_user: dict = Depends(get_current_user)) -> dict:
+    state = _get_state(current_user["id"])
     return simulate_whatif(state, req.description, req.dollar_change, req.weeks)
 
 
@@ -645,7 +649,7 @@ def simulate_what_if(request: Request, req: WhatIfRequest) -> dict:
 
 @app.post("/api/optimize/shifts")
 @limiter.limit("20/minute")
-def optimize_shifts(request: Request, req: OptimizeRequest) -> dict:
+def optimize_shifts(request: Request, req: OptimizeRequest, current_user: dict = Depends(get_current_user)) -> dict:
     events = db.get_events()
     candidates = candidates_from_events(events)
     result = optimize_shift_selection(candidates, max_hours=req.max_hours)

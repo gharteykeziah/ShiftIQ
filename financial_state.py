@@ -44,15 +44,16 @@ class FinancialState:
     expenses : list of Expense objects
     """
 
-    def __init__(self) -> None:
+    def __init__(self, user_id: int = 1) -> None:
         """Load all data from the database and record today's snapshot."""
         db.init_db()
-        self.balance:  float         = db.load_balance()
-        self.jobs:     list[Job]     = db.load_jobs()
-        self.expenses: list[Expense] = db.load_expenses()
+        self._user_id = user_id
+        self.balance:  float         = db.load_balance(user_id=user_id)
+        self.jobs:     list[Job]     = db.load_jobs(user_id=user_id)
+        self.expenses: list[Expense] = db.load_expenses(user_id=user_id)
         logger.info(
-            "FinancialState initialised — %d jobs, %d expenses, balance $%.2f",
-            len(self.jobs), len(self.expenses), self.balance,
+            "FinancialState initialised — %d jobs, %d expenses, balance $%.2f (user_id=%d)",
+            len(self.jobs), len(self.expenses), self.balance, user_id,
         )
         # Record today's snapshot for historical trend tracking
         db.record_snapshot(
@@ -60,6 +61,7 @@ class FinancialState:
             self.total_income_per_week(),
             self.total_expense_per_week(),
             self.net_weekly_flow(),
+            user_id=user_id,
         )
 
     # ── Validation ────────────────────────────────────────────────────────────
@@ -101,7 +103,7 @@ class FinancialState:
             logger.warning("add_job failed: %s", msg)
             return False, msg
         self.jobs.append(job)
-        db.insert_job(job)
+        db.insert_job(job, user_id=self._user_id)
         logger.info("add_job: %s  $%.2f/%s", job.name, job.amount, job.frequency)
         activity_log.log(f"Added Income: {job.name}  (${job.amount:.2f}/{job.frequency})")
         return True, f"'{job.name}' added."
@@ -111,7 +113,7 @@ class FinancialState:
         for job in self.jobs:
             if job.name == name:
                 self.jobs.remove(job)
-                db.remove_job(name)
+                db.remove_job(name, user_id=self._user_id)
                 logger.info("delete_job: %s", name)
                 activity_log.log(f"Deleted Income: {name}")
                 return True, f"'{name}' deleted."
@@ -132,7 +134,7 @@ class FinancialState:
             logger.warning("add_expense failed: %s", msg)
             return False, msg
         self.expenses.append(expense)
-        db.insert_expense(expense)
+        db.insert_expense(expense, user_id=self._user_id)
         logger.info("add_expense: %s  $%.2f/%s  [%s]",
                     expense.name, expense.amount, expense.frequency, expense.category)
         activity_log.log(
@@ -146,7 +148,7 @@ class FinancialState:
         for expense in self.expenses:
             if expense.name == name:
                 self.expenses.remove(expense)
-                db.remove_expense(name)
+                db.remove_expense(name, user_id=self._user_id)
                 logger.info("delete_expense: %s", name)
                 activity_log.log(f"Deleted Expense: {name}")
                 return True, f"Expense '{name}' deleted."
@@ -162,7 +164,7 @@ class FinancialState:
             return False, "Balance must be a number."
         old = self.balance
         self.balance = amount
-        db.save_balance(amount)
+        db.save_balance(amount, user_id=self._user_id)
         logger.info("set_balance: $%.2f → $%.2f", old, amount)
         activity_log.log(f"Balance Updated: ${old:.2f} → ${amount:.2f}")
         return True, f"Balance updated to ${amount:.2f}."
