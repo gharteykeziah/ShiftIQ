@@ -2,7 +2,7 @@
 auth.py — Password hashing and JWT token utilities.
 
 This module is the single source of truth for all authentication logic.
-Nothing outside this file calls passlib or python-jose directly.
+Nothing outside this file calls bcrypt or python-jose directly.
 
 Four public functions:
     hash_password(plain)          -> hashed string to store in DB
@@ -22,9 +22,9 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -52,10 +52,6 @@ if len(_SECRET_KEY) < 32:
 
 # ── Password hashing ──────────────────────────────────────────────────────────
 
-# CryptContext handles bcrypt rounds automatically and supports future
-# algorithm upgrades without changing any call sites.
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(plain: str) -> str:
     """Hash a plain-text password with bcrypt.
@@ -69,7 +65,7 @@ def hash_password(plain: str) -> str:
     Returns:
         A bcrypt hash string (e.g. "$2b$12$...").
     """
-    return _pwd_context.hash(plain)
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -82,7 +78,7 @@ def verify_password(plain: str, hashed: str) -> bool:
     Returns:
         True if the password matches, False otherwise.
     """
-    return _pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 # ── JWT tokens ────────────────────────────────────────────────────────────────
