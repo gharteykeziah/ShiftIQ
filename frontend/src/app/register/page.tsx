@@ -18,22 +18,34 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 8) {
+    // Read the actual submitted values from the DOM (via FormData) instead
+    // of trusting React state alone. Chrome's autofill/password-manager
+    // sometimes fills the visible input without firing a React-visible
+    // change event, so `email`/`password` state can silently stay empty
+    // even though the field looks filled — which made this form reject a
+    // valid autofilled password as "too short" and then blank the fields
+    // on re-render. FormData always reflects the real DOM value.
+    const data = new FormData(e.currentTarget);
+    const emailValue = (data.get("email") as string) ?? email;
+    const passwordValue = (data.get("password") as string) ?? password;
+    const confirmValue = (data.get("confirmPassword") as string) ?? confirmPassword;
+
+    if (passwordValue.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
-    if (password !== confirmPassword) {
+    if (passwordValue !== confirmValue) {
       setError("Passwords don't match.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await register(email, password);
+      await register(emailValue, passwordValue);
       router.push("/dashboard");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -51,6 +63,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           <Input
             label="Email address"
+            name="email"
             type="email"
             autoComplete="email"
             required
@@ -59,6 +72,7 @@ export default function RegisterPage() {
           />
           <Input
             label="Password"
+            name="password"
             type="password"
             autoComplete="new-password"
             required
@@ -68,6 +82,7 @@ export default function RegisterPage() {
           />
           <Input
             label="Confirm password"
+            name="confirmPassword"
             type="password"
             autoComplete="new-password"
             required

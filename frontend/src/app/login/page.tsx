@@ -17,12 +17,21 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    // Read from FormData rather than trusting React state alone — Chrome's
+    // autofill/password-manager can fill the visible field without firing
+    // a React-visible change event, leaving state empty even though the
+    // field looks filled. FormData always reflects the real DOM value.
+    const data = new FormData(e.currentTarget);
+    const emailValue = (data.get("email") as string) ?? email;
+    const passwordValue = (data.get("password") as string) ?? password;
+
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      await login(emailValue, passwordValue);
       router.push("/dashboard");
     } catch (err) {
       // api.py deliberately returns the same message for a wrong email vs.
@@ -42,6 +51,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           <Input
             label="Email address"
+            name="email"
             type="email"
             autoComplete="email"
             required
@@ -50,6 +60,7 @@ export default function LoginPage() {
           />
           <Input
             label="Password"
+            name="password"
             type="password"
             autoComplete="current-password"
             required
