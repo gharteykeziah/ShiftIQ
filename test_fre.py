@@ -1588,12 +1588,13 @@ class TestDedupJobs:
             conn.execute(
                 "CREATE TABLE jobs ("
                 "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                "  name TEXT, amount REAL, frequency TEXT DEFAULT 'Weekly'"
+                "  name TEXT, amount REAL, frequency TEXT DEFAULT 'Weekly',"
+                "  user_id INTEGER DEFAULT 1"
                 ")"
             )
             conn.execute(
-                "INSERT INTO jobs (id, name, amount, frequency)"
-                " SELECT id, name, amount, frequency FROM _jobs_bak"
+                "INSERT INTO jobs (id, name, amount, frequency, user_id)"
+                " SELECT id, name, amount, frequency, user_id FROM _jobs_bak"
             )
             conn.execute("DROP TABLE _jobs_bak")
             for name, amount, freq in rows:
@@ -1670,12 +1671,13 @@ class TestDedupExpenses:
                 "CREATE TABLE expenses ("
                 "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 "  name TEXT, amount REAL, category TEXT, date TEXT,"
-                "  frequency TEXT DEFAULT 'Monthly'"
+                "  frequency TEXT DEFAULT 'Monthly',"
+                "  user_id INTEGER DEFAULT 1"
                 ")"
             )
             conn.execute(
-                "INSERT INTO expenses (id, name, amount, category, date, frequency)"
-                " SELECT id, name, amount, category, date, frequency FROM _expenses_bak"
+                "INSERT INTO expenses (id, name, amount, category, date, frequency, user_id)"
+                " SELECT id, name, amount, category, date, frequency, user_id FROM _expenses_bak"
             )
             conn.execute("DROP TABLE _expenses_bak")
             for name, amount, cat, date, freq in rows:
