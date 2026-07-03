@@ -34,7 +34,7 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     try {
       await register(email, password);
-      router.push("/app");
+      router.push("/dashboard");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {

@@ -23,7 +23,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      router.push("/app");
+      router.push("/dashboard");
     } catch (err) {
       // api.py deliberately returns the same message for a wrong email vs.
       // wrong password (prevents user enumeration) — shown to the user as-is.
