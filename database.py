@@ -98,8 +98,54 @@ def init_db() -> None:
             )
         """)
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                email           TEXT UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL,
+                created_at      TEXT NOT NULL
+            )
+        """)
+
         c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('balance', 0)")
         conn.commit()
+
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+
+def insert_user(email: str, hashed_password: str) -> int:
+    """Insert a new user and return their new id.
+
+    Raises sqlite3.IntegrityError if the email already exists.
+    The caller (register endpoint) catches this and returns HTTP 409.
+    The hashed_password must already be a bcrypt hash — never pass plain text.
+    """
+    import datetime
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    with get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO users (email, hashed_password, created_at) VALUES (?, ?, ?)",
+            (email.lower().strip(), hashed_password, created_at),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_user_by_email(email: str) -> dict | None:
+    """Look up a user by email address.
+
+    Returns a dict with keys: id, email, hashed_password, created_at.
+    Returns None if no user with that email exists.
+    Email lookup is case-insensitive (stored lowercase).
+    """
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, email, hashed_password, created_at FROM users WHERE email = ?",
+            (email.lower().strip(),),
+        ).fetchone()
+    if row is None:
+        return None
+    return {"id": row[0], "email": row[1], "hashed_password": row[2], "created_at": row[3]}
 
 
 def load_balance() -> float:

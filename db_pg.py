@@ -58,6 +58,13 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 INSERT INTO settings (key, value) VALUES ('balance', 0) ON CONFLICT DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS users (
+    id              SERIAL PRIMARY KEY,
+    email           TEXT UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+);
 """
 
 
@@ -176,3 +183,33 @@ def load_history(conn) -> list[dict]:
          "expenses": r[3], "net": r[4]}
         for r in rows
     ]
+
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+
+def insert_user(conn, email: str, hashed_password: str) -> int:
+    """Insert a new user and return their new id.
+
+    Raises psycopg2.IntegrityError if the email already exists.
+    The hashed_password must already be a bcrypt hash.
+    """
+    import datetime
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    cur = conn.execute(
+        "INSERT INTO users (email, hashed_password, created_at) "
+        "VALUES (%s, %s, %s) RETURNING id",
+        (email.lower().strip(), hashed_password, created_at),
+    )
+    row = cur.fetchone()
+    return row[0]
+
+
+def get_user_by_email(conn, email: str) -> dict | None:
+    """Look up a user by email. Returns dict or None."""
+    row = conn.execute(
+        "SELECT id, email, hashed_password, created_at FROM users WHERE email = %s",
+        (email.lower().strip(),),
+    ).fetchone()
+    if row is None:
+        return None
+    return {"id": row[0], "email": row[1], "hashed_password": row[2], "created_at": row[3]}
