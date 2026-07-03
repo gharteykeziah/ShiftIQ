@@ -93,9 +93,32 @@ def init_db() -> None:
             c.execute("ALTER TABLE jobs ADD COLUMN user_id INTEGER DEFAULT 1")
             c.execute("UPDATE jobs SET user_id = 1 WHERE user_id IS NULL")
 
+        # Migrate old jobs table (hourly_rate + hours_per_week → amount + frequency).
+        # This must run BEFORE the UNIQUE(name, user_id) migration below so that
+        # the table recreation here doesn't undo the composite-unique migration.
+        cols = [r[1] for r in c.execute("PRAGMA table_info(jobs)").fetchall()]
+        if "hourly_rate" in cols:
+            c.execute("ALTER TABLE jobs ADD COLUMN amount    REAL")
+            c.execute("ALTER TABLE jobs ADD COLUMN frequency TEXT DEFAULT 'Weekly'")
+            c.execute("UPDATE jobs SET amount = hourly_rate * hours_per_week, frequency = 'Weekly'")
+            c.execute("""
+                CREATE TABLE jobs_new (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name      TEXT NOT NULL,
+                    amount    REAL,
+                    frequency TEXT DEFAULT 'Weekly',
+                    user_id   INTEGER DEFAULT 1,
+                    UNIQUE(name, user_id)
+                )
+            """)
+            c.execute("INSERT OR IGNORE INTO jobs_new (name, amount, frequency) "
+                      "SELECT name, amount, frequency FROM jobs")
+            c.execute("DROP TABLE jobs")
+            c.execute("ALTER TABLE jobs_new RENAME TO jobs")
+
         # Migrate: change UNIQUE(name) → UNIQUE(name, user_id) for multi-user isolation.
         # Old schema had a single-column unique on name, which silently blocks two users
-        # from having the same job name. Detect by checking existing indexes.
+        # from having the same job name. Must run AFTER the hourly_rate migration above.
         job_indexes = c.execute("PRAGMA index_list(jobs)").fetchall()
         has_composite_jobs = any(
             {"name", "user_id"} == {r[2] for r in c.execute(f"PRAGMA index_info('{idx[1]}')").fetchall()}
@@ -116,24 +139,6 @@ def init_db() -> None:
                       "SELECT id, name, amount, frequency, user_id FROM jobs")
             c.execute("DROP TABLE jobs")
             c.execute("ALTER TABLE jobs_migrated RENAME TO jobs")
-
-        # Migrate old jobs table (hourly_rate + hours_per_week → amount + frequency)
-        cols = [r[1] for r in c.execute("PRAGMA table_info(jobs)").fetchall()]
-        if "hourly_rate" in cols:
-            c.execute("ALTER TABLE jobs ADD COLUMN amount    REAL")
-            c.execute("ALTER TABLE jobs ADD COLUMN frequency TEXT DEFAULT 'Weekly'")
-            c.execute("UPDATE jobs SET amount = hourly_rate * hours_per_week, frequency = 'Weekly'")
-            c.execute("""
-                CREATE TABLE jobs_new (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT UNIQUE,
-                    amount REAL,
-                    frequency TEXT DEFAULT 'Weekly'
-                )
-            """)
-            c.execute("INSERT INTO jobs_new (name, amount, frequency) SELECT name, amount, frequency FROM jobs")
-            c.execute("DROP TABLE jobs")
-            c.execute("ALTER TABLE jobs_new RENAME TO jobs")
 
         # Migrate: add user_id to expenses if not present
         cols = [r[1] for r in c.execute("PRAGMA table_info(expenses)").fetchall()]

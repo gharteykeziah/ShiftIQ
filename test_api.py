@@ -321,6 +321,18 @@ class TestJobs:
         r = authed_client.put("/api/jobs/Ghost", json={"name": "Ghost", "amount": 100, "frequency": "Weekly"})
         assert r.status_code == 404
 
+    def test_rename_job_to_existing_name_rejected(self, authed_client):
+        """Renaming a job to a name that's already taken must be rejected before
+        deleting the original — otherwise the original record is permanently lost."""
+        authed_client.post("/api/jobs", json={"name": "Barista", "amount": 300, "frequency": "Weekly"})
+        authed_client.post("/api/jobs", json={"name": "Server", "amount": 400, "frequency": "Weekly"})
+        r = authed_client.put("/api/jobs/Barista", json={"name": "Server", "amount": 300, "frequency": "Weekly"})
+        assert r.status_code == 400
+        # Original job must still exist — was not deleted
+        jobs = authed_client.get("/api/jobs").json()
+        names = [j["name"] for j in jobs]
+        assert "Barista" in names
+
     def test_xss_in_job_name_stripped(self, authed_client):
         """HTML tags in job name must be stripped before storage."""
         r = authed_client.post("/api/jobs", json={
@@ -401,6 +413,27 @@ class TestExpenses:
         })
         assert r.status_code == 200
         assert r.json()["amount"] == 800
+
+    def test_rename_expense_to_existing_name_rejected(self, authed_client):
+        """Renaming an expense to a name that's already taken must be rejected
+        before deleting the original — otherwise the original record is lost."""
+        authed_client.post("/api/expenses", json={
+            "name": "Rent", "amount": 700, "category": "Housing",
+            "date": "2026-01-01", "frequency": "Monthly"
+        })
+        authed_client.post("/api/expenses", json={
+            "name": "Food", "amount": 200, "category": "Groceries",
+            "date": "2026-01-01", "frequency": "Weekly"
+        })
+        r = authed_client.put("/api/expenses/Rent", json={
+            "name": "Food", "amount": 700, "category": "Housing",
+            "date": "2026-01-01", "frequency": "Monthly"
+        })
+        assert r.status_code == 400
+        # Original expense must still exist
+        expenses = authed_client.get("/api/expenses").json()
+        names = [e["name"] for e in expenses]
+        assert "Rent" in names
 
 
 # ── Projection ────────────────────────────────────────────────────────────────

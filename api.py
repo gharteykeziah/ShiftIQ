@@ -69,10 +69,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Allow the React dev server (port 3000) and any deployed frontend to call the API.
 # In production, replace "*" with your actual frontend domain for tighter security.
+#
+# allow_credentials=False: this API uses Bearer tokens in the Authorization header,
+# not cookies. allow_credentials=True is only required for cookie-based auth.
+# Starlette raises ValueError if allow_credentials=True is combined with
+# allow_origins=["*"], and browsers reject credentialed preflight responses
+# with a wildcard origin regardless.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
