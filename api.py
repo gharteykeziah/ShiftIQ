@@ -21,6 +21,8 @@ automatically by FastAPI from the type hints below).
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -30,7 +32,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -102,12 +104,44 @@ def _get_state() -> FinancialState:
     return FinancialState()
 
 
+# ── Input sanitization helper ─────────────────────────────────────────────────
+
+_HTML_TAG_RE = re.compile(r'<[^>]+>')
+
+def _strip_html(value: str) -> str:
+    """Remove all HTML/script tags from a string and strip surrounding whitespace.
+
+    This is the first line of defence against XSS: anything a user types that
+    contains <script>, <img onerror=...>, or any other tag is stripped before
+    it ever reaches the database or gets echoed back in a response.
+    """
+    return _HTML_TAG_RE.sub('', value).strip()
+
+
+_VALID_FREQUENCIES = {"Weekly", "Bi-Weekly", "Monthly", "Annually", "One-Time"}
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class JobIn(BaseModel):
-    name: str
-    amount: float = Field(gt=0)
+    name: str = Field(min_length=1, max_length=100)
+    amount: float = Field(gt=0, le=1_000_000)
     frequency: str = "Weekly"
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
+        v = _strip_html(str(v))
+        if not v:
+            raise ValueError("name cannot be empty")
+        return v
+
+    @field_validator("frequency")
+    @classmethod
+    def validate_frequency(cls, v: str) -> str:
+        if v not in _VALID_FREQUENCIES:
+            raise ValueError(f"frequency must be one of {sorted(_VALID_FREQUENCIES)}")
+        return v
 
 
 class JobOut(BaseModel):
@@ -118,11 +152,35 @@ class JobOut(BaseModel):
 
 
 class ExpenseIn(BaseModel):
-    name: str
-    amount: float = Field(gt=0)
-    category: str
+    name: str = Field(min_length=1, max_length=100)
+    amount: float = Field(gt=0, le=1_000_000)
+    category: str = Field(min_length=1, max_length=50)
     date: str
     frequency: str = "Monthly"
+
+    @field_validator("name", "category", mode="before")
+    @classmethod
+    def sanitize_strings(cls, v: str) -> str:
+        v = _strip_html(str(v))
+        if not v:
+            raise ValueError("field cannot be empty")
+        return v
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("date must be in YYYY-MM-DD format")
+        return v
+
+    @field_validator("frequency")
+    @classmethod
+    def validate_frequency(cls, v: str) -> str:
+        if v not in _VALID_FREQUENCIES:
+            raise ValueError(f"frequency must be one of {sorted(_VALID_FREQUENCIES)}")
+        return v
 
 
 class ExpenseOut(BaseModel):
@@ -145,7 +203,7 @@ class StateSummary(BaseModel):
 
 
 class BalanceIn(BaseModel):
-    amount: float = Field(ge=0, description="New balance in dollars (must be 0 or greater)")
+    amount: float = Field(ge=0, le=100_000_000, description="New balance in dollars (must be 0 or greater)")
 
 
 class MonteCarloRequest(BaseModel):
@@ -154,9 +212,17 @@ class MonteCarloRequest(BaseModel):
 
 
 class WhatIfRequest(BaseModel):
-    description: str
-    dollar_change: float
+    description: str = Field(min_length=1, max_length=200)
+    dollar_change: float = Field(ge=-1_000_000, le=1_000_000)
     weeks: int = Field(gt=0, le=520)
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def sanitize_description(cls, v: str) -> str:
+        v = _strip_html(str(v))
+        if not v:
+            raise ValueError("description cannot be empty")
+        return v
 
 
 class OptimizeRequest(BaseModel):
