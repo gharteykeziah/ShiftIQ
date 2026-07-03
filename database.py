@@ -473,42 +473,48 @@ def init_events_table() -> None:
                 end_time    TEXT    NOT NULL,
                 hourly_rate REAL    NOT NULL DEFAULT 0.0,
                 notes       TEXT    NOT NULL DEFAULT '',
-                shift_date  TEXT    NOT NULL DEFAULT ''
+                shift_date  TEXT    NOT NULL DEFAULT '',
+                user_id     INTEGER NOT NULL DEFAULT 1
             )
         """)
         # Migrate: add shift_date if table existed without it
         cols = [r[1] for r in conn.execute("PRAGMA table_info(events)").fetchall()]
         if "shift_date" not in cols:
             conn.execute("ALTER TABLE events ADD COLUMN shift_date TEXT NOT NULL DEFAULT ''")
+        # Migrate: add user_id if table existed without it
+        if "user_id" not in cols:
+            conn.execute("ALTER TABLE events ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
         conn.commit()
 
 
-def add_event(event) -> int:
+def add_event(event, user_id: int = 1) -> int:
     """
     Insert a ScheduleEvent and return its new id.
     Accepts any object with the right fields (duck-typed).
     shift_date is stored when present; defaults to '' for legacy callers.
+    user_id scopes the event to a specific account (default 1 for desktop app).
     """
     shift_date = getattr(event, "shift_date", "") or ""
     with get_connection() as conn:
         cur = conn.execute(
             """INSERT INTO events
                    (title, category, day, start_time, end_time,
-                    hourly_rate, notes, shift_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    hourly_rate, notes, shift_date, user_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (event.title, event.category, event.day,
              event.start_time, event.end_time,
-             event.hourly_rate, event.notes, shift_date),
+             event.hourly_rate, event.notes, shift_date, user_id),
         )
         conn.commit()
         return cur.lastrowid
 
 
-def get_events(day: str | None = None) -> list:
+def get_events(day: str | None = None, user_id: int = 1) -> list:
     """
-    Load events from the database.
+    Load events from the database, scoped to the given user.
     If day is given, filter to that day only; otherwise return all.
     Returns a list of ScheduleEvent instances.
+    user_id defaults to 1 so the desktop app (no auth) is unaffected.
     """
     from schedule_event import ScheduleEvent
     with get_connection() as conn:
@@ -516,14 +522,15 @@ def get_events(day: str | None = None) -> list:
             rows = conn.execute(
                 "SELECT id, title, category, day, start_time, end_time, "
                 "hourly_rate, notes, shift_date "
-                "FROM events WHERE day = ? ORDER BY start_time",
-                (day,),
+                "FROM events WHERE day = ? AND user_id = ? ORDER BY start_time",
+                (day, user_id),
             ).fetchall()
         else:
             rows = conn.execute(
                 "SELECT id, title, category, day, start_time, end_time, "
                 "hourly_rate, notes, shift_date "
-                "FROM events ORDER BY day, start_time"
+                "FROM events WHERE user_id = ? ORDER BY day, start_time",
+                (user_id,),
             ).fetchall()
     return [
         ScheduleEvent(

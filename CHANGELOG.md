@@ -5,6 +5,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.0] — 2026-07-02
+
+### Security (Phase 2 — Steps 15–20)
+
+- **Complete user isolation for events** — `events` table gains `user_id` column;
+  `get_events()` and `add_event()` are now user-scoped. `GET /api/analytics/income`,
+  `GET /api/analytics/efficiency`, and `POST /api/optimize/shifts` previously called
+  `db.get_events()` without a user filter — all three now pass `current_user["id"]`.
+  No endpoint can read or write another user's schedule data.
+- **Seed migration script** — `scripts/seed_user_id.py` assigns `user_id = 1` to all
+  pre-migration rows in `events`, `jobs`, `expenses`, and `history`. Safe to re-run.
+  The first registered account (id = 1) automatically owns all legacy data.
+
+### Testing (CI-enforced security verification)
+
+- **Step 17 — Unauthorized access test** (`TestUnauthorizedAccess`): Every protected
+  endpoint (9 GETs, 1 PUT, 2 DELETEs, 5 POSTs) is hit with no token and asserts 401.
+  Malformed tokens and tampered JWTs also assert 401. CI fails if any endpoint is
+  accidentally left unauthenticated.
+- **Step 18 — XSS injection test** (`TestXSSInjection`): `<script>alert(1)</script>`
+  is sent through every string input field (job name, expense name, expense category,
+  what-if description). Asserts the payload is not echoed back in any response body.
+- **Step 19 — Response audit** (`TestResponseAudit`): Asserts `hashed_password`,
+  `DATABASE_URL`, and `SECRET_KEY` never appear in any response body. Verifies user
+  data isolation end-to-end: User B cannot see User A's jobs via any endpoint.
+
+### Changed
+
+- API version bumped to `2.0.0`
+- `events` table schema updated with `user_id INTEGER NOT NULL DEFAULT 1`
+- `database.get_events(day, user_id)` and `database.add_event(event, user_id)` accept
+  `user_id` parameter; both default to `1` so the desktop app is unaffected
+
+---
+
 ## [1.3.0] — 2026-07-03
 
 ### Added

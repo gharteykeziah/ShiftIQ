@@ -61,7 +61,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 app = FastAPI(
     title="ShiftIQ API",
     description="Schedule-driven financial simulation engine, exposed over HTTP.",
-    version="1.3.0",
+    version="2.0.0",
 )
 
 app.state.limiter = limiter
@@ -599,7 +599,7 @@ def get_projection(request: Request, weeks: int = 12, current_user: dict = Depen
 @app.get("/api/analytics/income")
 @limiter.limit("60/minute")
 def analytics_income(request: Request, current_user: dict = Depends(get_current_user)) -> dict:
-    events = db.get_events()
+    events = db.get_events(user_id=current_user["id"])
     groups = sa.income_by_job(events)
     return {
         key: {
@@ -614,7 +614,7 @@ def analytics_income(request: Request, current_user: dict = Depends(get_current_
 @app.get("/api/analytics/efficiency")
 @limiter.limit("60/minute")
 def analytics_efficiency(request: Request, current_user: dict = Depends(get_current_user)) -> list[dict]:
-    events = db.get_events()
+    events = db.get_events(user_id=current_user["id"])
     report = sa.job_efficiency_report(events)
     return [
         {
@@ -650,7 +650,7 @@ def simulate_what_if(request: Request, req: WhatIfRequest, current_user: dict = 
 @app.post("/api/optimize/shifts")
 @limiter.limit("20/minute")
 def optimize_shifts(request: Request, req: OptimizeRequest, current_user: dict = Depends(get_current_user)) -> dict:
-    events = db.get_events()
+    events = db.get_events(user_id=current_user["id"])
     candidates = candidates_from_events(events)
     result = optimize_shift_selection(candidates, max_hours=req.max_hours)
     return {

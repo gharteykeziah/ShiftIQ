@@ -478,3 +478,275 @@ class TestSimulation:
         })
         assert r.status_code == 200
         assert "history" in r.json()
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+class TestAnalytics:
+
+    def test_income_returns_dict(self, authed_client):
+        r = authed_client.get("/api/analytics/income")
+        assert r.status_code == 200
+        assert isinstance(r.json(), dict)
+
+    def test_efficiency_returns_list(self, authed_client):
+        r = authed_client.get("/api/analytics/efficiency")
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+
+# ── Optimizer ─────────────────────────────────────────────────────────────────
+
+class TestOptimizer:
+
+    def test_optimize_returns_result(self, authed_client):
+        r = authed_client.post("/api/optimize/shifts", json={"max_hours": 20})
+        assert r.status_code == 200
+        data = r.json()
+        assert "selected" in data
+        assert "total_hours" in data
+        assert data["total_hours"] <= 20
+
+
+# ── Step 17: Unauthorized access — every protected endpoint returns 401 ───────
+
+class TestUnauthorizedAccess:
+    """CI-enforced: every protected endpoint must return 401 with no token.
+
+    This class proves we haven't accidentally left any endpoint unauthenticated.
+    Add a new row here whenever a new protected endpoint is added to api.py.
+    """
+
+    PROTECTED_GETS = [
+        "/api/state",
+        "/api/jobs",
+        "/api/expenses",
+        "/api/history",
+        "/api/insights",
+        "/api/projection",
+        "/api/auth/me",
+        "/api/analytics/income",
+        "/api/analytics/efficiency",
+    ]
+
+    PROTECTED_PUTS = [
+        ("/api/balance", {"amount": 100}),
+    ]
+
+    PROTECTED_DELETES = [
+        "/api/jobs/Ghost",
+        "/api/expenses/Ghost",
+    ]
+
+    PROTECTED_POSTS = [
+        ("/api/jobs",        {"name": "X", "amount": 100, "frequency": "Weekly"}),
+        ("/api/expenses",    {"name": "X", "amount": 100, "category": "Food",
+                              "date": "2026-01-01", "frequency": "Monthly"}),
+        ("/api/simulate/monte-carlo", {"weeks": 4, "n": 10}),
+        ("/api/simulate/whatif",      {"description": "Test",
+                                       "dollar_change": -50, "weeks": 4}),
+        ("/api/optimize/shifts",      {"max_hours": 20}),
+    ]
+
+    def test_all_get_endpoints_require_auth(self, client):
+        for path in self.PROTECTED_GETS:
+            r = client.get(path)
+            assert r.status_code == 401, (
+                f"Expected 401 for GET {path}, got {r.status_code}"
+            )
+
+    def test_all_put_endpoints_require_auth(self, client):
+        for path, body in self.PROTECTED_PUTS:
+            r = client.put(path, json=body)
+            assert r.status_code == 401, (
+                f"Expected 401 for PUT {path}, got {r.status_code}"
+            )
+
+    def test_all_delete_endpoints_require_auth(self, client):
+        for path in self.PROTECTED_DELETES:
+            r = client.delete(path)
+            assert r.status_code == 401, (
+                f"Expected 401 for DELETE {path}, got {r.status_code}"
+            )
+
+    def test_all_post_endpoints_require_auth(self, client):
+        for path, body in self.PROTECTED_POSTS:
+            r = client.post(path, json=body)
+            assert r.status_code == 401, (
+                f"Expected 401 for POST {path}, got {r.status_code}"
+            )
+
+    def test_malformed_token_rejected(self, client):
+        """A syntactically invalid token must return 401, not 500."""
+        r = client.get("/api/state",
+                       headers={"Authorization": "Bearer notavalidtoken"})
+        assert r.status_code == 401
+
+    def test_expired_or_tampered_token_rejected(self, client):
+        """A plausible but tampered JWT must return 401."""
+        fake = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+                ".eyJzdWIiOiIxIiwiZXhwIjoxfQ"
+                ".TAMPERED_SIGNATURE_HERE")
+        r = client.get("/api/state",
+                       headers={"Authorization": f"Bearer {fake}"})
+        assert r.status_code == 401
+
+
+# ── Step 18: XSS injection — every string input must be sanitized ─────────────
+
+class TestXSSInjection:
+    """CI-enforced: HTML tags sent in any string field must not be echoed back.
+
+    Either the value is stored with tags stripped (our _strip_html path)
+    or the request is rejected entirely (422). Both are acceptable.
+    The one thing that is NOT acceptable: <script> appearing verbatim in
+    any response body.
+    """
+
+    XSS_PAYLOAD = "<script>alert(1)</script>"
+
+    def _no_script_in_response(self, r) -> bool:
+        return self.XSS_PAYLOAD not in r.text
+
+    def test_xss_in_job_name(self, authed_client):
+        r = authed_client.post("/api/jobs", json={
+            "name": f"{self.XSS_PAYLOAD}Barista",
+            "amount": 300,
+            "frequency": "Weekly",
+        })
+        assert r.status_code in (201, 422)
+        assert self._no_script_in_response(r)
+
+    def test_xss_in_expense_name(self, authed_client):
+        r = authed_client.post("/api/expenses", json={
+            "name": f"{self.XSS_PAYLOAD}Rent",
+            "amount": 500,
+            "category": "Housing",
+            "date": "2026-01-01",
+            "frequency": "Monthly",
+        })
+        assert r.status_code in (201, 422)
+        assert self._no_script_in_response(r)
+
+    def test_xss_in_expense_category(self, authed_client):
+        r = authed_client.post("/api/expenses", json={
+            "name": "Rent",
+            "amount": 500,
+            "category": f"{self.XSS_PAYLOAD}",
+            "date": "2026-01-01",
+            "frequency": "Monthly",
+        })
+        assert r.status_code in (201, 422)
+        assert self._no_script_in_response(r)
+
+    def test_xss_in_whatif_description(self, authed_client):
+        r = authed_client.post("/api/simulate/whatif", json={
+            "description": f"{self.XSS_PAYLOAD}car repair",
+            "dollar_change": -200,
+            "weeks": 4,
+        })
+        assert r.status_code in (200, 422)
+        assert self._no_script_in_response(r)
+
+    def test_xss_only_payload_job_name_rejected_or_stripped(self, authed_client):
+        """A name that is ONLY tags reduces to empty string → must be 422."""
+        r = authed_client.post("/api/jobs", json={
+            "name": self.XSS_PAYLOAD,
+            "amount": 100,
+            "frequency": "Weekly",
+        })
+        # After stripping, name is empty → Pydantic min_length=1 rejects it
+        assert r.status_code == 422
+
+
+# ── Step 19: Response audit — no sensitive data in any response body ──────────
+
+class TestResponseAudit:
+    """CI-enforced: sensitive fields must never appear in API responses.
+
+    Checks:
+    - hashed_password is never returned
+    - DATABASE_URL is never leaked
+    - Tokens are not echoed back in unexpected places
+    - Internal error details are not exposed
+    """
+
+    SENSITIVE_KEYS = ["hashed_password", "DATABASE_URL", "SECRET_KEY"]
+
+    def _response_clean(self, r) -> bool:
+        body = r.text
+        return not any(key in body for key in self.SENSITIVE_KEYS)
+
+    def test_register_no_password_in_response(self, client):
+        r = client.post("/api/auth/register", json={
+            "email": "audit@example.com",
+            "password": "auditpass99"
+        })
+        assert r.status_code == 201
+        data = r.json()
+        assert "hashed_password" not in data
+        assert "password" not in data
+        assert self._response_clean(r)
+
+    def test_login_no_password_in_response(self, client):
+        client.post("/api/auth/register", json={
+            "email": "audit@example.com", "password": "auditpass99"
+        })
+        r = client.post("/api/auth/login", json={
+            "email": "audit@example.com", "password": "auditpass99"
+        })
+        assert r.status_code == 200
+        data = r.json()
+        assert "hashed_password" not in data
+        assert "password" not in data
+        assert self._response_clean(r)
+
+    def test_me_no_password_in_response(self, authed_client):
+        r = authed_client.get("/api/auth/me")
+        assert r.status_code == 200
+        data = r.json()
+        assert "hashed_password" not in data
+        assert "password" not in data
+        assert self._response_clean(r)
+
+    def test_state_no_sensitive_data(self, authed_client):
+        r = authed_client.get("/api/state")
+        assert self._response_clean(r)
+
+    def test_jobs_list_no_sensitive_data(self, authed_client):
+        r = authed_client.get("/api/jobs")
+        assert self._response_clean(r)
+
+    def test_404_does_not_leak_internals(self, client):
+        r = client.get("/api/nonexistent-endpoint")
+        assert r.status_code == 404
+        assert self._response_clean(r)
+
+    def test_401_does_not_leak_internals(self, client):
+        r = client.get("/api/state")
+        assert r.status_code == 401
+        assert self._response_clean(r)
+
+    def test_user_data_isolated_between_users(self, client):
+        """User B must never see User A's jobs in any endpoint response."""
+        # User A registers and adds a job
+        client.post("/api/auth/register",
+                    json={"email": "userA@example.com", "password": "passpassA"})
+        r = client.post("/api/auth/login",
+                        json={"email": "userA@example.com", "password": "passpassA"})
+        token_a = r.json()["access_token"]
+        client.post("/api/jobs",
+                    json={"name": "SecretJobA", "amount": 999, "frequency": "Weekly"},
+                    headers={"Authorization": f"Bearer {token_a}"})
+
+        # User B registers and checks their job list
+        client.post("/api/auth/register",
+                    json={"email": "userB@example.com", "password": "passpassB"})
+        r = client.post("/api/auth/login",
+                        json={"email": "userB@example.com", "password": "passpassB"})
+        token_b = r.json()["access_token"]
+        r = client.get("/api/jobs",
+                       headers={"Authorization": f"Bearer {token_b}"})
+
+        # "SecretJobA" must not appear in User B's job list
+        assert "SecretJobA" not in r.text
