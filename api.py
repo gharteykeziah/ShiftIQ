@@ -30,7 +30,8 @@ load_dotenv()  # loads .env when running locally; no-op in production
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.base import BaseHTTPMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -73,6 +74,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Security headers ──────────────────────────────────────────────────────────
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach security headers to every HTTP response.
+
+    These headers instruct browsers to block common attack vectors:
+    - nosniff:     prevent MIME-type sniffing (browser executing JSON as script)
+    - DENY:        block clickjacking via <iframe> embedding
+    - XSS-filter:  activate the browser's built-in XSS detector (legacy browsers)
+    - Referrer:    don't leak URL details to third-party sites
+    """
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 _insight_engine = InsightEngine()
 
