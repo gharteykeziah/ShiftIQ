@@ -26,11 +26,14 @@ from typing import Optional
 from dotenv import load_dotenv
 load_dotenv()  # loads .env when running locally; no-op in production
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 import database as db
 import db_pg
@@ -43,11 +46,21 @@ import shift_analytics as sa
 from model import Job, Expense
 from config import MONTE_CARLO_RUNS
 
+# ── Rate limiter ──────────────────────────────────────────────────────────────
+# Keys requests by IP address. Limits:
+#   - Auth endpoints: 10/minute  (slow down password-guessing attacks)
+#   - Write endpoints: 30/minute (prevent bulk data abuse)
+#   - Read endpoints:  60/minute (comfortable for real users, not for scrapers)
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
 app = FastAPI(
     title="ShiftIQ API",
     description="Schedule-driven financial simulation engine, exposed over HTTP.",
     version="1.3.0",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Allow the React dev server (port 3000) and any deployed frontend to call the API.
 # In production, replace "*" with your actual frontend domain for tighter security.
@@ -153,14 +166,16 @@ class OptimizeRequest(BaseModel):
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
-def health() -> dict:
+@limiter.limit("60/minute")
+def health(request: Request) -> dict:
     return {"status": "ok"}
 
 
 # ── Financial state ───────────────────────────────────────────────────────────
 
 @app.get("/api/state", response_model=StateSummary)
-def get_state_summary() -> StateSummary:
+@limiter.limit("60/minute")
+def get_state_summary(request: Request) -> StateSummary:
     state = _get_state()
     return StateSummary(
         balance=state.current_balance(),
@@ -176,7 +191,8 @@ def get_state_summary() -> StateSummary:
 # ── Balance ───────────────────────────────────────────────────────────────────
 
 @app.put("/api/balance")
-def update_balance(body: BalanceIn) -> dict:
+@limiter.limit("30/minute")
+def update_balance(request: Request, body: BalanceIn) -> dict:
     """Update the current saved balance."""
     state = _get_state()
     ok, message = state.set_balance(body.amount)
@@ -188,7 +204,8 @@ def update_balance(body: BalanceIn) -> dict:
 # ── Jobs ──────────────────────────────────────────────────────────────────────
 
 @app.get("/api/jobs", response_model=list[JobOut])
-def list_jobs() -> list[JobOut]:
+@limiter.limit("60/minute")
+def list_jobs(request: Request) -> list[JobOut]:
     return [
         JobOut(name=j.name, amount=j.amount, frequency=j.frequency,
                weekly_income=round(j.weekly_income(), 2))
@@ -197,7 +214,8 @@ def list_jobs() -> list[JobOut]:
 
 
 @app.post("/api/jobs", response_model=JobOut, status_code=201)
-def add_job(job_in: JobIn) -> JobOut:
+@limiter.limit("30/minute")
+def add_job(request: Request, job_in: JobIn) -> JobOut:
     state = _get_state()
     job = Job(job_in.name, job_in.amount, job_in.frequency)
     ok, message = state.add_job(job)
@@ -208,7 +226,8 @@ def add_job(job_in: JobIn) -> JobOut:
 
 
 @app.put("/api/jobs/{name}", response_model=JobOut)
-def update_job(name: str, job_in: JobIn) -> JobOut:
+@limiter.limit("30/minute")
+def update_job(request: Request, name: str, job_in: JobIn) -> JobOut:
     """Update an existing job's amount and/or frequency by name."""
     state = _get_state()
     ok, message = state.delete_job(name)
@@ -223,7 +242,8 @@ def update_job(name: str, job_in: JobIn) -> JobOut:
 
 
 @app.delete("/api/jobs/{name}")
-def delete_job(name: str) -> dict:
+@limiter.limit("30/minute")
+def delete_job(request: Request, name: str) -> dict:
     state = _get_state()
     ok, message = state.delete_job(name)
     if not ok:
@@ -234,7 +254,8 @@ def delete_job(name: str) -> dict:
 # ── Expenses ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/expenses", response_model=list[ExpenseOut])
-def list_expenses() -> list[ExpenseOut]:
+@limiter.limit("60/minute")
+def list_expenses(request: Request) -> list[ExpenseOut]:
     return [
         ExpenseOut(name=e.name, amount=e.amount, category=e.category,
                    date=e.date, frequency=e.frequency,
@@ -244,7 +265,8 @@ def list_expenses() -> list[ExpenseOut]:
 
 
 @app.post("/api/expenses", response_model=ExpenseOut, status_code=201)
-def add_expense(expense_in: ExpenseIn) -> ExpenseOut:
+@limiter.limit("30/minute")
+def add_expense(request: Request, expense_in: ExpenseIn) -> ExpenseOut:
     state = _get_state()
     expense = Expense(expense_in.name, expense_in.amount, expense_in.category,
                        expense_in.date, expense_in.frequency)
@@ -258,7 +280,8 @@ def add_expense(expense_in: ExpenseIn) -> ExpenseOut:
 
 
 @app.put("/api/expenses/{name}", response_model=ExpenseOut)
-def update_expense(name: str, expense_in: ExpenseIn) -> ExpenseOut:
+@limiter.limit("30/minute")
+def update_expense(request: Request, name: str, expense_in: ExpenseIn) -> ExpenseOut:
     """Update an existing expense by name."""
     state = _get_state()
     ok, message = state.delete_expense(name)
@@ -276,7 +299,8 @@ def update_expense(name: str, expense_in: ExpenseIn) -> ExpenseOut:
 
 
 @app.delete("/api/expenses/{name}")
-def delete_expense(name: str) -> dict:
+@limiter.limit("30/minute")
+def delete_expense(request: Request, name: str) -> dict:
     state = _get_state()
     ok, message = state.delete_expense(name)
     if not ok:
@@ -287,7 +311,8 @@ def delete_expense(name: str) -> dict:
 # ── History ───────────────────────────────────────────────────────────────────
 
 @app.get("/api/history")
-def get_history() -> dict:
+@limiter.limit("60/minute")
+def get_history(request: Request) -> dict:
     """Return all daily financial snapshots ordered by date ascending."""
     snapshots = db.load_history()
     return {
@@ -299,7 +324,8 @@ def get_history() -> dict:
 # ── Insights ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/insights")
-def get_insights() -> dict:
+@limiter.limit("60/minute")
+def get_insights(request: Request) -> dict:
     """Return plain-English financial insights generated by the InsightEngine."""
     state = _get_state()
     insights = _insight_engine.generate_insights(state)
@@ -315,7 +341,8 @@ def get_insights() -> dict:
 # ── Projection ────────────────────────────────────────────────────────────────
 
 @app.get("/api/projection")
-def get_projection(weeks: int = 12) -> dict:
+@limiter.limit("60/minute")
+def get_projection(request: Request, weeks: int = 12) -> dict:
     """Project balance week-by-week over the next N weeks (default 12)."""
     if weeks < 1 or weeks > 520:
         raise HTTPException(status_code=400, detail="weeks must be between 1 and 520.")
@@ -335,7 +362,8 @@ def get_projection(weeks: int = 12) -> dict:
 # ── Schedule analytics ────────────────────────────────────────────────────────
 
 @app.get("/api/analytics/income")
-def analytics_income() -> dict:
+@limiter.limit("60/minute")
+def analytics_income(request: Request) -> dict:
     events = db.get_events()
     groups = sa.income_by_job(events)
     return {
@@ -349,7 +377,8 @@ def analytics_income() -> dict:
 
 
 @app.get("/api/analytics/efficiency")
-def analytics_efficiency() -> list[dict]:
+@limiter.limit("60/minute")
+def analytics_efficiency(request: Request) -> list[dict]:
     events = db.get_events()
     report = sa.job_efficiency_report(events)
     return [
@@ -366,7 +395,8 @@ def analytics_efficiency() -> list[dict]:
 # ── Simulation ────────────────────────────────────────────────────────────────
 
 @app.post("/api/simulate/monte-carlo")
-def simulate_monte_carlo(req: MonteCarloRequest) -> dict:
+@limiter.limit("10/minute")
+def simulate_monte_carlo(request: Request, req: MonteCarloRequest) -> dict:
     state = _get_state()
     result = run_monte_carlo(state, weeks=req.weeks, n=req.n)
     result.pop("ending_balances", None)  # large array — omit from default JSON response
@@ -374,7 +404,8 @@ def simulate_monte_carlo(req: MonteCarloRequest) -> dict:
 
 
 @app.post("/api/simulate/whatif")
-def simulate_what_if(req: WhatIfRequest) -> dict:
+@limiter.limit("20/minute")
+def simulate_what_if(request: Request, req: WhatIfRequest) -> dict:
     state = _get_state()
     return simulate_whatif(state, req.description, req.dollar_change, req.weeks)
 
@@ -382,7 +413,8 @@ def simulate_what_if(req: WhatIfRequest) -> dict:
 # ── Optimizer ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/optimize/shifts")
-def optimize_shifts(req: OptimizeRequest) -> dict:
+@limiter.limit("20/minute")
+def optimize_shifts(request: Request, req: OptimizeRequest) -> dict:
     events = db.get_events()
     candidates = candidates_from_events(events)
     result = optimize_shift_selection(candidates, max_hours=req.max_hours)
