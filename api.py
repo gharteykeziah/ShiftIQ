@@ -38,6 +38,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+import auth
 import database as db
 import db_pg
 import privacy_policy
@@ -255,6 +256,28 @@ class OptimizeRequest(BaseModel):
     max_hours: float = Field(gt=0, le=168)
 
 
+class RegisterIn(BaseModel):
+    email: str = Field(min_length=5, max_length=254)
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        import re
+        v = v.lower().strip()
+        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', v):
+            raise ValueError("invalid email address")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_not_empty(cls, v: str) -> str:
+        # Length is enforced by Field(min_length=8) — this strips whitespace-only
+        if not v.strip():
+            raise ValueError("password cannot be blank")
+        return v
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
@@ -278,6 +301,28 @@ def get_privacy_html(request: Request):
     """Return the privacy policy as a human-readable HTML page."""
     from fastapi.responses import HTMLResponse
     return HTMLResponse(content=privacy_policy.as_html(), status_code=200)
+
+
+# ── Auth ─────────────────────────────────────────────────────────────────────
+
+@app.post("/api/auth/register", status_code=201)
+@limiter.limit("5/minute")
+def register(request: Request, body: RegisterIn) -> dict:
+    """Create a new user account.
+
+    Validates email format and password length, hashes the password with
+    bcrypt, then stores the user. Returns 409 if the email is already taken.
+    Never returns the password or hash in the response.
+    """
+    # Check for duplicate email before inserting
+    existing = db.get_user_by_email(body.email)
+    if existing:
+        raise HTTPException(status_code=409, detail="Email already registered.")
+
+    hashed = auth.hash_password(body.password)
+    db.insert_user(body.email, hashed)
+
+    return {"message": "Account created.", "email": body.email}
 
 
 # ── Financial state ───────────────────────────────────────────────────────────
