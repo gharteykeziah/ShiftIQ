@@ -40,6 +40,7 @@ from slowapi.errors import RateLimitExceeded
 
 import database as db
 import db_pg
+import privacy_policy
 from db_connection import get_connection, is_postgres
 from financial_state import FinancialState
 from insight_engine import InsightEngine
@@ -260,6 +261,23 @@ class OptimizeRequest(BaseModel):
 @limiter.limit("60/minute")
 def health(request: Request) -> dict:
     return {"status": "ok"}
+
+
+# ── Privacy policy ────────────────────────────────────────────────────────────
+
+@app.get("/api/privacy")
+@limiter.limit("60/minute")
+def get_privacy_json(request: Request) -> dict:
+    """Return the privacy policy as structured JSON."""
+    return privacy_policy.as_dict()
+
+
+@app.get("/privacy", response_class=FileResponse)
+@limiter.limit("60/minute")
+def get_privacy_html(request: Request):
+    """Return the privacy policy as a human-readable HTML page."""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=privacy_policy.as_html(), status_code=200)
 
 
 # ── Financial state ───────────────────────────────────────────────────────────
