@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { MobileHeader } from "@/components/layout/MobileHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
@@ -52,9 +53,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-bg md:flex-row">
+    <div className="flex min-h-screen flex-col bg-bg md:flex-row">
       <Sidebar />
-      <main className="flex-1 pb-20 md:pb-0">{children}</main>
+      <div className="flex flex-1 flex-col">
+        <MobileHeader />
+        <main className="flex-1 pb-20 md:pb-0">{children}</main>
+      </div>
       <BottomNav />
     </div>
   );
