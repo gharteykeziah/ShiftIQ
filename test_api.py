@@ -22,17 +22,28 @@ os.environ["DATABASE_URL"] = ""   # force SQLite mode
 from fastapi.testclient import TestClient
 import db_connection
 import database
-from api import app
+from api import app, limiter
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)
 def fresh_db(monkeypatch, tmp_path):
-    """Each test gets its own empty database."""
+    """Each test gets its own empty database and clean rate-limiter state.
+
+    Without the limiter reset, register (5/minute) gets exhausted after
+    a handful of TestAuth tests, causing authed_client to silently receive
+    a 429 on its register call, leaving no user in the DB, and making the
+    subsequent login return 401 → KeyError on 'access_token'.
+    """
     db_file = str(tmp_path / "api_test.db")
     monkeypatch.setattr(db_connection, "SQLITE_FILE", db_file)
     database.init_db()
     database.init_events_table()
+    # Reset the in-memory rate-limiter so each test starts with a clean slate
+    try:
+        limiter.reset()
+    except Exception:
+        pass
 
 
 @pytest.fixture
