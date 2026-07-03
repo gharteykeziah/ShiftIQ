@@ -213,3 +213,14 @@ def get_user_by_email(conn, email: str) -> dict | None:
     if row is None:
         return None
     return {"id": row[0], "email": row[1], "hashed_password": row[2], "created_at": row[3]}
+
+
+def get_user_by_id(conn, user_id: int) -> dict | None:
+    """Look up a user by id. Returns dict (no hashed_password) or None."""
+    row = conn.execute(
+        "SELECT id, email, created_at FROM users WHERE id = %s",
+        (user_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {"id": row[0], "email": row[1], "created_at": row[2]}

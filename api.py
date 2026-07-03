@@ -28,7 +28,7 @@ from typing import Optional
 from dotenv import load_dotenv
 load_dotenv()  # loads .env when running locally; no-op in production
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -335,6 +335,30 @@ def register(request: Request, body: RegisterIn) -> dict:
     return {"message": "Account created.", "email": body.email}
 
 
+def get_current_user(authorization: str | None = Header(default=None)) -> dict:
+    """FastAPI dependency — extract and verify the Bearer token.
+
+    Attach to any endpoint that requires authentication:
+        current_user: dict = Depends(get_current_user)
+
+    Returns the user dict {id, email, created_at} on success.
+    Raises HTTP 401 if the header is missing, malformed, expired, or invalid.
+    The hashed_password is intentionally excluded from the returned dict.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Missing or invalid Authorization header. Use: Bearer <token>",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = authorization[len("Bearer "):].strip()
+    user_id = auth.decode_token(token)   # raises 401 if expired or tampered
+    user = db.get_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="User account not found.")
+    return user
+
+
 @app.post("/api/auth/login")
 @limiter.limit("10/minute")
 def login(request: Request, body: LoginIn) -> dict:
@@ -361,6 +385,21 @@ def login(request: Request, body: LoginIn) -> dict:
 
     token = auth.create_token(user["id"])
     return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/api/auth/me")
+@limiter.limit("60/minute")
+def me(request: Request, current_user: dict = Depends(get_current_user)) -> dict:
+    """Return the currently authenticated user's profile.
+
+    Requires a valid Bearer token in the Authorization header.
+    Returns id, email, and created_at — never the hashed_password.
+    """
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "created_at": current_user["created_at"],
+    }
 
 
 # ── Financial state ───────────────────────────────────────────────────────────

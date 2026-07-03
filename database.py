@@ -148,6 +148,23 @@ def get_user_by_email(email: str) -> dict | None:
     return {"id": row[0], "email": row[1], "hashed_password": row[2], "created_at": row[3]}
 
 
+def get_user_by_id(user_id: int) -> dict | None:
+    """Look up a user by their primary key id.
+
+    Returns a dict with keys: id, email, created_at (no hashed_password).
+    Returns None if no user with that id exists.
+    Used by get_current_user() to verify the token subject still exists.
+    """
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, email, created_at FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return {"id": row[0], "email": row[1], "created_at": row[2]}
+
+
 def load_balance() -> float:
     """Load the saved balance from settings."""
     with get_connection() as conn:
