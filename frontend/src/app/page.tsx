@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-// Auth and the real pages don't exist yet (Days 4+) — send / to the
-// component preview so there's something meaningful to look at for now.
+// The real app shell lands in Days 7-8 — for now, / sends visitors to the
+// onboarding flow. /components-preview is still reachable directly by URL.
 export default function Home() {
-  redirect("/components-preview");
+  redirect("/onboarding");
 }
