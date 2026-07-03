@@ -9,6 +9,19 @@ import os
 APP_NAME    = "ShiftIQ"
 APP_VERSION = "1.1"
 
+# ── CORS (frontend origins allowed to call the API) ──────────────────────────
+# Comma-separated list of allowed origins, e.g.:
+#   CORS_ORIGINS=https://app.shiftiq.com,https://staging.shiftiq.com
+# Not set (local dev default): allow the standard Next.js dev server origins
+# only. Production deployments MUST set this explicitly — the API refuses to
+# start with a wildcard origin.
+_DEFAULT_DEV_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", _DEFAULT_DEV_ORIGINS).split(",")
+    if origin.strip()
+]
+
 # ── Database ──────────────────────────────────────────────────────────────────
 DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "finance.db")
 

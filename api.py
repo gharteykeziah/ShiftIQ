@@ -49,7 +49,7 @@ from simulation import run_monte_carlo, simulate_whatif
 from optimizer import optimize_shift_selection, candidates_from_events
 import shift_analytics as sa
 from model import Job, Expense
-from config import MONTE_CARLO_RUNS
+from config import MONTE_CARLO_RUNS, CORS_ORIGINS
 
 # ── Rate limiter ──────────────────────────────────────────────────────────────
 # Keys requests by IP address. Limits:
@@ -67,17 +67,31 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Allow the React dev server (port 3000) and any deployed frontend to call the API.
-# In production, replace "*" with your actual frontend domain for tighter security.
+# Allow only known frontend origins to call the API — configured via the
+# CORS_ORIGINS env var (comma-separated). Defaults to the standard Next.js
+# dev server origins (http://localhost:3000, http://127.0.0.1:3000) when
+# unset. Production deployments MUST set CORS_ORIGINS to the real frontend
+# domain(s), e.g. CORS_ORIGINS=https://app.shiftiq.com
 #
-# allow_credentials=False: this API uses Bearer tokens in the Authorization header,
-# not cookies. allow_credentials=True is only required for cookie-based auth.
-# Starlette raises ValueError if allow_credentials=True is combined with
-# allow_origins=["*"], and browsers reject credentialed preflight responses
-# with a wildcard origin regardless.
+# A wildcard ("*") is refused outright — it would let any website read
+# authenticated responses via a stolen/copied Bearer token in a user's
+# browser (e.g. via a malicious script making a fetch() from another tab).
+# Scoping to explicit origins costs nothing since the frontend origin is
+# known ahead of time, and it's the only one that should ever call this API.
+#
+# allow_credentials=False: this API uses Bearer tokens in the Authorization
+# header, not cookies. allow_credentials=True is only required for
+# cookie-based auth.
+if "*" in CORS_ORIGINS:
+    raise RuntimeError(
+        "CORS_ORIGINS cannot include '*'. Set it to a comma-separated list "
+        "of exact frontend origins, e.g. "
+        "CORS_ORIGINS=https://app.shiftiq.com,http://localhost:3000"
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

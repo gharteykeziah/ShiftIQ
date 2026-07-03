@@ -21,3 +21,7 @@ services:
         # REQUIRED for PostgreSQL: set in Render dashboard → Environment.
         # Leave blank to use SQLite (not recommended in production).
         sync: false
+      - key: CORS_ORIGINS
+        # REQUIRED: comma-separated list of allowed frontend origins, e.g.
+        # https://app.shiftiq.com. The API refuses to start with a wildcard.
+        sync: false
