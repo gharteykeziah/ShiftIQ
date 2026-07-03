@@ -80,108 +80,122 @@ def init_db(conn) -> None:
 
 # ── Balance ───────────────────────────────────────────────────────────────────
 
-def load_balance(conn) -> float:
+def load_balance(conn, user_id: int = 1) -> float:
     row = conn.execute(
-        "SELECT value FROM settings WHERE key = 'balance'"
+        "SELECT value FROM settings WHERE key = 'balance' AND user_id = %s",
+        (user_id,)
     ).fetchone()
     return row[0] if row else 0.0
 
 
-def save_balance(conn, balance: float) -> None:
+def save_balance(conn, balance: float, user_id: int = 1) -> None:
     conn.execute(
-        "INSERT INTO settings (key, value) VALUES ('balance', %s) "
-        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-        (balance,)
+        "INSERT INTO settings (user_id, key, value) VALUES (%s, 'balance', %s) "
+        "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
+        (user_id, balance)
     )
 
 
-def load_setting(conn, key: str, default: float) -> float:
+def load_setting(conn, key: str, default: float, user_id: int = 1) -> float:
     row = conn.execute(
-        "SELECT value FROM settings WHERE key = %s", (key,)
+        "SELECT value FROM settings WHERE key = %s AND user_id = %s",
+        (key, user_id)
     ).fetchone()
     return row[0] if row else default
 
 
-def save_setting(conn, key: str, value: float) -> None:
+def save_setting(conn, key: str, value: float, user_id: int = 1) -> None:
     conn.execute(
-        "INSERT INTO settings (key, value) VALUES (%s, %s) "
-        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-        (key, value)
+        "INSERT INTO settings (user_id, key, value) VALUES (%s, %s, %s) "
+        "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
+        (user_id, key, value)
     )
 
 
 # ── Jobs ──────────────────────────────────────────────────────────────────────
 
-def load_jobs(conn) -> list[Job]:
+def load_jobs(conn, user_id: int = 1) -> list[Job]:
     rows = conn.execute(
-        "SELECT name, amount, frequency FROM jobs"
+        "SELECT name, amount, frequency FROM jobs WHERE user_id = %s",
+        (user_id,)
     ).fetchall()
     return [Job(name, amount, frequency) for name, amount, frequency in rows]
 
 
-def insert_job(conn, job: Job) -> None:
+def insert_job(conn, job: Job, user_id: int = 1) -> None:
     conn.execute(
-        "INSERT INTO jobs (name, amount, frequency) VALUES (%s, %s, %s) "
+        "INSERT INTO jobs (name, amount, frequency, user_id) VALUES (%s, %s, %s, %s) "
         "ON CONFLICT (name) DO NOTHING",
-        (job.name, job.amount, job.frequency)
+        (job.name, job.amount, job.frequency, user_id)
     )
 
 
-def remove_job(conn, name: str) -> None:
-    conn.execute("DELETE FROM jobs WHERE name = %s", (name,))
-
-
-def update_job_amount(conn, name: str, amount: float) -> None:
+def remove_job(conn, name: str, user_id: int = 1) -> None:
     conn.execute(
-        "UPDATE jobs SET amount = %s WHERE name = %s", (amount, name)
+        "DELETE FROM jobs WHERE name = %s AND user_id = %s",
+        (name, user_id)
+    )
+
+
+def update_job_amount(conn, name: str, amount: float, user_id: int = 1) -> None:
+    conn.execute(
+        "UPDATE jobs SET amount = %s WHERE name = %s AND user_id = %s",
+        (amount, name, user_id)
     )
 
 
 # ── Expenses ──────────────────────────────────────────────────────────────────
 
-def load_expenses(conn) -> list[Expense]:
+def load_expenses(conn, user_id: int = 1) -> list[Expense]:
     rows = conn.execute(
-        "SELECT name, amount, category, date, frequency FROM expenses"
+        "SELECT name, amount, category, date, frequency FROM expenses WHERE user_id = %s",
+        (user_id,)
     ).fetchall()
     return [Expense(name, amount, category, date, frequency)
             for name, amount, category, date, frequency in rows]
 
 
-def insert_expense(conn, expense: Expense) -> None:
+def insert_expense(conn, expense: Expense, user_id: int = 1) -> None:
     conn.execute(
-        "INSERT INTO expenses (name, amount, category, date, frequency) "
-        "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (name) DO NOTHING",
+        "INSERT INTO expenses (name, amount, category, date, frequency, user_id) "
+        "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (name) DO NOTHING",
         (expense.name, expense.amount, expense.category,
-         expense.date, expense.frequency)
+         expense.date, expense.frequency, user_id)
     )
 
 
-def remove_expense(conn, name: str) -> None:
-    conn.execute("DELETE FROM expenses WHERE name = %s", (name,))
+def remove_expense(conn, name: str, user_id: int = 1) -> None:
+    conn.execute(
+        "DELETE FROM expenses WHERE name = %s AND user_id = %s",
+        (name, user_id)
+    )
 
 
 # ── History ───────────────────────────────────────────────────────────────────
 
 def record_snapshot(conn, balance: float, income: float,
-                    expenses: float, net: float) -> None:
+                    expenses: float, net: float,
+                    user_id: int = 1) -> None:
     import datetime
     today = datetime.date.today().isoformat()
     conn.execute(
-        "INSERT INTO history (date, balance, income_weekly, expenses_weekly, net_weekly) "
-        "VALUES (%s, %s, %s, %s, %s) "
+        "INSERT INTO history (date, balance, income_weekly, expenses_weekly, net_weekly, user_id) "
+        "VALUES (%s, %s, %s, %s, %s, %s) "
         "ON CONFLICT (date) DO UPDATE SET "
         "balance = EXCLUDED.balance, "
         "income_weekly = EXCLUDED.income_weekly, "
         "expenses_weekly = EXCLUDED.expenses_weekly, "
-        "net_weekly = EXCLUDED.net_weekly",
-        (today, balance, income, expenses, net)
+        "net_weekly = EXCLUDED.net_weekly, "
+        "user_id = EXCLUDED.user_id",
+        (today, balance, income, expenses, net, user_id)
     )
 
 
-def load_history(conn) -> list[dict]:
+def load_history(conn, user_id: int = 1) -> list[dict]:
     rows = conn.execute(
         "SELECT date, balance, income_weekly, expenses_weekly, net_weekly "
-        "FROM history ORDER BY date ASC"
+        "FROM history WHERE user_id = %s ORDER BY date ASC",
+        (user_id,)
     ).fetchall()
     return [
         {"date": r[0], "balance": r[1], "income": r[2],

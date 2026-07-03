@@ -208,61 +208,70 @@ def get_user_by_id(user_id: int) -> dict | None:
     return {"id": row[0], "email": row[1], "created_at": row[2]}
 
 
-def load_balance() -> float:
-    """Load the saved balance from settings."""
+def load_balance(user_id: int = 1) -> float:
+    """Load the saved balance from settings for a specific user."""
     with get_connection() as conn:
-        row = conn.execute("SELECT value FROM settings WHERE key = 'balance'").fetchone()
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = 'balance' AND user_id = ?",
+            (user_id,)
+        ).fetchone()
     return row[0] if row else 0.0
 
 
-def save_balance(balance: float) -> None:
-    """Persist the current balance."""
+def save_balance(balance: float, user_id: int = 1) -> None:
+    """Persist the current balance for a specific user."""
     with get_connection() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES ('balance', ?)",
-            (balance,)
+            "INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, 'balance', ?)",
+            (user_id, balance)
         )
         conn.commit()
 
 
-def load_setting(key: str, default: float) -> float:
-    """Load a named setting. Returns default if not found."""
+def load_setting(key: str, default: float, user_id: int = 1) -> float:
+    """Load a named setting for a user. Returns default if not found."""
     with get_connection() as conn:
-        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = ? AND user_id = ?",
+            (key, user_id)
+        ).fetchone()
     return row[0] if row else default
 
 
-def save_setting(key: str, value: float) -> None:
-    """Persist a named setting."""
+def save_setting(key: str, value: float, user_id: int = 1) -> None:
+    """Persist a named setting for a user."""
     with get_connection() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            (key, value)
+            "INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, ?, ?)",
+            (user_id, key, value)
         )
         conn.commit()
 
 
-def load_jobs() -> list[Job]:
-    """Load all jobs from the database."""
+def load_jobs(user_id: int = 1) -> list[Job]:
+    """Load all jobs for a specific user."""
     with get_connection() as conn:
-        rows = conn.execute("SELECT name, amount, frequency FROM jobs").fetchall()
+        rows = conn.execute(
+            "SELECT name, amount, frequency FROM jobs WHERE user_id = ?",
+            (user_id,)
+        ).fetchall()
     return [Job(name, amount, frequency) for name, amount, frequency in rows]
 
 
-def insert_job(job: Job) -> None:
-    """Insert a new job. Ignores duplicates (name is UNIQUE)."""
+def insert_job(job: Job, user_id: int = 1) -> None:
+    """Insert a new job for a user. Ignores duplicates (name is UNIQUE)."""
     with get_connection() as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO jobs (name, amount, frequency) VALUES (?, ?, ?)",
-            (job.name, job.amount, job.frequency)
+            "INSERT OR IGNORE INTO jobs (name, amount, frequency, user_id) VALUES (?, ?, ?, ?)",
+            (job.name, job.amount, job.frequency, user_id)
         )
         conn.commit()
 
 
-def remove_job(name: str) -> None:
-    """Delete a job by name."""
+def remove_job(name: str, user_id: int = 1) -> None:
+    """Delete a job by name for a specific user."""
     with get_connection() as conn:
-        conn.execute("DELETE FROM jobs WHERE name = ?", (name,))
+        conn.execute("DELETE FROM jobs WHERE name = ? AND user_id = ?", (name, user_id))
         conn.commit()
 
 
@@ -366,69 +375,82 @@ def update_events_rate(job_title: str, rate: float, threshold: float = 0.82) -> 
         conn.commit()
 
 
-def update_job_amount(name: str, amount: float) -> None:
+def update_job_amount(name: str, amount: float, user_id: int = 1) -> None:
     """Update the income amount for an existing job (used by schedule sync)."""
     with get_connection() as conn:
-        conn.execute("UPDATE jobs SET amount = ? WHERE name = ?", (amount, name))
+        conn.execute(
+            "UPDATE jobs SET amount = ? WHERE name = ? AND user_id = ?",
+            (amount, name, user_id)
+        )
         conn.commit()
 
 
-def load_expenses() -> list[Expense]:
-    """Load all expenses from the database."""
+def load_expenses(user_id: int = 1) -> list[Expense]:
+    """Load all expenses for a specific user."""
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT name, amount, category, date, frequency FROM expenses"
+            "SELECT name, amount, category, date, frequency FROM expenses WHERE user_id = ?",
+            (user_id,)
         ).fetchall()
     return [Expense(name, amount, category, date, frequency)
             for name, amount, category, date, frequency in rows]
 
 
-def insert_expense(expense: Expense) -> None:
-    """Insert a new expense. Ignores duplicates (name is UNIQUE)."""
+def insert_expense(expense: Expense, user_id: int = 1) -> None:
+    """Insert a new expense for a user. Ignores duplicates (name is UNIQUE)."""
     with get_connection() as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO expenses (name, amount, category, date, frequency) VALUES (?, ?, ?, ?, ?)",
-            (expense.name, expense.amount, expense.category, expense.date, expense.frequency)
+            "INSERT OR IGNORE INTO expenses (name, amount, category, date, frequency, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (expense.name, expense.amount, expense.category,
+             expense.date, expense.frequency, user_id)
         )
         conn.commit()
 
 
-def remove_expense(name: str) -> None:
-    """Delete an expense by name."""
+def remove_expense(name: str, user_id: int = 1) -> None:
+    """Delete an expense by name for a specific user."""
     with get_connection() as conn:
-        conn.execute("DELETE FROM expenses WHERE name = ?", (name,))
+        conn.execute(
+            "DELETE FROM expenses WHERE name = ? AND user_id = ?",
+            (name, user_id)
+        )
         conn.commit()
 
 
 # ── History / Trend Tracking ──────────────────────────────────────────────────
 
-def record_snapshot(balance: float, income: float, expenses: float, net: float) -> None:
+def record_snapshot(
+    balance: float, income: float, expenses: float, net: float,
+    user_id: int = 1,
+) -> None:
     """
-    Save today's financial snapshot to the history table.
+    Save today's financial snapshot to the history table for a specific user.
     One record per day — if today already exists, it updates it.
     """
     import datetime
     today = datetime.date.today().isoformat()
     with get_connection() as conn:
         conn.execute("""
-            INSERT INTO history (date, balance, income_weekly, expenses_weekly, net_weekly)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO history (date, balance, income_weekly, expenses_weekly, net_weekly, user_id)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(date) DO UPDATE SET
                 balance         = excluded.balance,
                 income_weekly   = excluded.income_weekly,
                 expenses_weekly = excluded.expenses_weekly,
-                net_weekly      = excluded.net_weekly
-        """, (today, balance, income, expenses, net))
+                net_weekly      = excluded.net_weekly,
+                user_id         = excluded.user_id
+        """, (today, balance, income, expenses, net, user_id))
         conn.commit()
 
 
-def load_history() -> list[dict]:
-    """Return all history snapshots ordered by date ascending."""
+def load_history(user_id: int = 1) -> list[dict]:
+    """Return all history snapshots for a user, ordered by date ascending."""
     with get_connection() as conn:
         rows = conn.execute("""
             SELECT date, balance, income_weekly, expenses_weekly, net_weekly
-            FROM history ORDER BY date ASC
-        """).fetchall()
+            FROM history WHERE user_id = ? ORDER BY date ASC
+        """, (user_id,)).fetchall()
     return [
         {"date": r[0], "balance": r[1], "income": r[2],
          "expenses": r[3], "net": r[4]}
