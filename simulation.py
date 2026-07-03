@@ -3,7 +3,6 @@ from __future__ import annotations
 import random
 import logging
 import numpy as np
-import activity_log
 from config import MONTE_CARLO_RUNS
 
 logger = logging.getLogger(__name__)
@@ -81,7 +80,7 @@ def simulate_whatif(
     summary = _whatif_summary(dollar_change, weekly_flow)
 
     logger.info("simulate_whatif: '%s'  $%.2f  %d weeks", description, dollar_change, weeks)
-    activity_log.log(f"What-If Simulation: \"{description}\"  (${dollar_change:+.2f} over {weeks} weeks)")
+    logger.info("What-If Simulation: \"%s\"  ($%+.2f over %d weeks)", description, dollar_change, weeks)
     return {
         "history": history,
         "summary": summary
@@ -258,8 +257,8 @@ def run_monte_carlo(state: "FinancialState", weeks: int, n: int = MONTE_CARLO_RU
 
     logger.info("run_monte_carlo: %d runs / %d weeks  avg=$%.2f  deficit=%.1f%%",
                 n, weeks, average, deficit_prob)
-    activity_log.log(f"Monte Carlo Simulation: {n} runs over {weeks} weeks  "
-                     f"(avg ${average:.2f}, {deficit_prob}% deficit risk)")
+    logger.info("Monte Carlo Simulation: %d runs over %d weeks (avg $%.2f, %.1f%% deficit risk)",
+                n, weeks, average, deficit_prob)
     return {
         "average":             average,
         "best_case":           best_case,

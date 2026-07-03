@@ -543,13 +543,14 @@ def get_events(day: str | None = None, user_id: int = 1) -> list:
     ]
 
 
-def get_events_for_week(week_start) -> list:
+def get_events_for_week(week_start, user_id: int = 1) -> list:
     """
     Return all events whose shift_date falls within the 7-day week
-    starting on *week_start* (a datetime.date or ISO string).
+    starting on *week_start* (a datetime.date or ISO string), scoped to user_id.
 
     Events with no shift_date (legacy data) are NOT included — use
     get_events() for a full unfiltered list.
+    user_id defaults to 1 so the desktop app (no auth) is unaffected.
     """
     import datetime
     from schedule_event import ScheduleEvent
@@ -565,9 +566,9 @@ def get_events_for_week(week_start) -> list:
             "SELECT id, title, category, day, start_time, end_time, "
             "hourly_rate, notes, shift_date "
             "FROM events "
-            "WHERE shift_date >= ? AND shift_date <= ? "
+            "WHERE shift_date >= ? AND shift_date <= ? AND user_id = ? "
             "ORDER BY shift_date, start_time",
-            (start_s, end_s),
+            (start_s, end_s, user_id),
         ).fetchall()
     return [
         ScheduleEvent(
@@ -598,18 +599,19 @@ def update_event(event_id: int, **fields) -> None:
         conn.commit()
 
 
-def get_events_for_date(date_str: str) -> list:
+def get_events_for_date(date_str: str, user_id: int = 1) -> list:
     """
-    Return all events whose shift_date matches *date_str* exactly.
+    Return all events whose shift_date matches *date_str* exactly, scoped to user_id.
     *date_str* must be ISO "YYYY-MM-DD".
+    user_id defaults to 1 so the desktop app (no auth) is unaffected.
     """
     from schedule_event import ScheduleEvent
     with get_connection() as conn:
         rows = conn.execute(
             "SELECT id, title, category, day, start_time, end_time, "
             "hourly_rate, notes, shift_date "
-            "FROM events WHERE shift_date = ? ORDER BY start_time",
-            (date_str,),
+            "FROM events WHERE shift_date = ? AND user_id = ? ORDER BY start_time",
+            (date_str, user_id),
         ).fetchall()
     return [
         ScheduleEvent(
@@ -622,12 +624,13 @@ def get_events_for_date(date_str: str) -> list:
     ]
 
 
-def get_events_for_date_range(start_str: str, end_str: str) -> list:
+def get_events_for_date_range(start_str: str, end_str: str, user_id: int = 1) -> list:
     """
-    Return all events whose shift_date falls within [start_str, end_str].
+    Return all events whose shift_date falls within [start_str, end_str], scoped to user_id.
     Both arguments must be ISO "YYYY-MM-DD" strings.
     Events with no shift_date (legacy data) are excluded.
     Results are sorted by shift_date, then start_time.
+    user_id defaults to 1 so the desktop app (no auth) is unaffected.
     """
     from schedule_event import ScheduleEvent
     with get_connection() as conn:
@@ -636,8 +639,9 @@ def get_events_for_date_range(start_str: str, end_str: str) -> list:
             "hourly_rate, notes, shift_date "
             "FROM events "
             "WHERE shift_date != '' AND shift_date >= ? AND shift_date <= ? "
+            "AND user_id = ? "
             "ORDER BY shift_date, start_time",
-            (start_str, end_str),
+            (start_str, end_str, user_id),
         ).fetchall()
     return [
         ScheduleEvent(
@@ -650,16 +654,17 @@ def get_events_for_date_range(start_str: str, end_str: str) -> list:
     ]
 
 
-def get_events_for_month(year: int, month: int) -> list:
+def get_events_for_month(year: int, month: int, user_id: int = 1) -> list:
     """
-    Return all events for the given calendar month.
+    Return all events for the given calendar month, scoped to user_id.
     Delegates to get_events_for_date_range with the month's first/last day.
+    user_id defaults to 1 so the desktop app (no auth) is unaffected.
     """
     import calendar
     last_day = calendar.monthrange(year, month)[1]
     start    = f"{year:04d}-{month:02d}-01"
     end      = f"{year:04d}-{month:02d}-{last_day:02d}"
-    return get_events_for_date_range(start, end)
+    return get_events_for_date_range(start, end, user_id=user_id)
 
 
 def delete_event_by_id(event_id: int) -> None:

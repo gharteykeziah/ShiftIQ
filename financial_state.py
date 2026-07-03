@@ -240,17 +240,19 @@ class FinancialState:
     def weeks_to_goal(self, goal_amount: float) -> int | None:
         """
         How many weeks to reach goal_amount at current net weekly flow.
-        Returns None if flow is zero or negative, or if goal is unreachable.
+        Returns None if flow is zero or negative, or if goal would take
+        more than 10,000 weeks (effectively unreachable).
+        O(1) formula — replaces the previous O(N) while loop.
         """
-        if self.net_weekly_flow() <= 0:
+        import math
+        net = self.net_weekly_flow()
+        if net <= 0:
             return None
-        weeks, balance = 0, self.balance
-        while balance < goal_amount:
-            balance += self.net_weekly_flow()
-            weeks   += 1
-            if weeks > 10_000:
-                return None
-        return weeks
+        remaining = goal_amount - self.balance
+        if remaining <= 0:
+            return 0
+        weeks = math.ceil(remaining / net)
+        return weeks if weeks <= 10_000 else None
 
     def goal_progress(self, goal_amount: float) -> float | None:
         """Percentage of goal_amount already saved. None if goal is zero."""

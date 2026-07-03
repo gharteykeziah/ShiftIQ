@@ -13,3 +13,11 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: SECRET_KEY
+        # REQUIRED: Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+        # Set this in the Render dashboard → Environment — never commit the real value.
+        sync: false
+      - key: DATABASE_URL
+        # REQUIRED for PostgreSQL: set in Render dashboard → Environment.
+        # Leave blank to use SQLite (not recommended in production).
+        sync: false

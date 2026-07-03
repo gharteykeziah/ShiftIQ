@@ -98,8 +98,10 @@ class ScheduleEvent:
             return False, f"Day must be one of: {', '.join(DAYS)}."
         start = to_minutes(self.start_time)
         end   = to_minutes(self.end_time)
-        if end <= start:
-            return False, "End time must be after start time."
+        if end == start:
+            return False, "Start and end time cannot be the same (zero-duration shift)."
+        # end < start is valid — it means the shift crosses midnight (overnight).
+        # shift_analytics._shift_hours() adds 1440 minutes in that case.
         if self.category == "Work" and self.hourly_rate < 0:
             return False, "Hourly rate cannot be negative."
         return True, "OK"

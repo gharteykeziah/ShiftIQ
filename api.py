@@ -149,7 +149,9 @@ def _strip_html(value: str) -> str:
     return _HTML_TAG_RE.sub('', value).strip()
 
 
-_VALID_FREQUENCIES = {"Weekly", "Bi-Weekly", "Monthly", "Annually", "One-Time"}
+# Must match FREQ_TO_WEEKLY keys in model.py exactly — wrong values silently
+# fall back to a 1.0 multiplier and produce incorrect income projections.
+_VALID_FREQUENCIES = {"Daily", "Weekly", "Biweekly", "Monthly"}
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────

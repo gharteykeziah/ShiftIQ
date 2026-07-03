@@ -1,5 +1,5 @@
 """
-schedule_analytics.py — Date-range income and schedule analytics for ShiftIQ.
+shift_analytics.py — Date-range income and schedule analytics for ShiftIQ.
 
 All functions are pure: they accept ScheduleEvent lists (from database.py)
 and return plain dicts / dataclass instances — no GUI, no DB calls.
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import datetime
 from collections import defaultdict
+from dataclasses import dataclass
 from utils import canon_name
 
 
@@ -260,8 +261,6 @@ def top_earning_days(
 
 
 # ── Decision Engine ───────────────────────────────────────────────────────────
-
-from dataclasses import dataclass
 
 
 @dataclass
