@@ -40,6 +40,7 @@ htmlcov/
 .idea/
 *.swp
 *.swo
+.fuse_hidden*
 
 # ── Build / distribution ──────────────────────────────────────────────────────
 dist/

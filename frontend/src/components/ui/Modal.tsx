@@ -34,12 +34,12 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         role="dialog"
         aria-modal="true"
         className={cn(
-          "animate-fade-in relative z-10 w-full max-w-md rounded-t-3xl bg-surface p-6 shadow-card sm:rounded-3xl",
+          "animate-slide-up relative z-10 w-full max-w-dialog rounded-t-xl bg-surface p-8 shadow-2 sm:animate-scale-in sm:rounded-xl",
           className
         )}
       >
-        <div className="mb-4 flex items-center justify-between">
-          {title && <h2 className="text-lg font-bold text-text">{title}</h2>}
+        <div className="mb-5 flex items-center justify-between">
+          {title && <h2 className="font-serif text-card-heading font-medium text-text">{title}</h2>}
           <button
             onClick={onClose}
             className="ml-auto rounded-full p-1.5 text-muted hover:bg-surface-hover"

@@ -269,7 +269,7 @@ export default function ExpensesPage() {
             <select
               value={form.frequency}
               onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value as Frequency }))}
-              className="w-full rounded-2xl border-0 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
             >
               {FREQUENCIES.map((freq) => (
                 <option key={freq} value={freq}>

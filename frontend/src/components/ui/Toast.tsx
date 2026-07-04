@@ -26,9 +26,9 @@ export function useToast() {
 }
 
 const icons: Record<ToastVariant, ReactNode> = {
-  info: <Info className="h-5 w-5 text-blue" aria-hidden="true" />,
-  success: <CheckCircle2 className="h-5 w-5 text-accent" aria-hidden="true" />,
-  warning: <AlertTriangle className="h-5 w-5 text-danger" aria-hidden="true" />,
+  info: <Info className="h-5 w-5 text-accent" aria-hidden="true" />,
+  success: <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" />,
+  warning: <AlertTriangle className="h-5 w-5 text-warning" aria-hidden="true" />,
 };
 
 /**
@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => [...prev, { id, message, variant }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, 3000);
   }, []);
 
   return (
@@ -62,11 +62,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {mounted &&
         createPortal(
-          <div className="fixed bottom-4 left-1/2 z-[100] flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4 sm:bottom-6">
+          // Doc 12: desktop bottom-right, phone top. Toasts never block interaction.
+          <div className="fixed left-1/2 top-4 z-[100] flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4 sm:left-auto sm:right-6 sm:top-auto sm:bottom-6 sm:translate-x-0">
             {toasts.map((t) => (
               <div
                 key={t.id}
-                className="animate-fade-in flex items-start gap-3 rounded-2xl bg-surface p-4 shadow-card"
+                className="animate-fade-up flex items-start gap-3 rounded-md border border-border bg-surface p-4 shadow-1"
               >
                 {icons[t.variant]}
                 <p className="flex-1 text-sm text-text">{t.message}</p>

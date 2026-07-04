@@ -3,7 +3,13 @@
 import { ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+// ShiftIQ Design System (Doc 12) defines exactly three button kinds:
+// Primary (filled), Secondary (outlined), Ghost (text only). "outline" below
+// *is* that Secondary kind — kept as the prop name so existing call sites
+// across Shifts/Expenses/Jobs (not yet in this redesign pass) keep compiling.
+// "danger" is a necessary functional exception for existing delete
+// confirmations; it borrows Secondary's shape with the Clay error color.
+type ButtonVariant = "primary" | "outline" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -13,17 +19,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-white hover:bg-accent-dark shadow-sm shadow-accent/20",
-  secondary: "bg-blue text-white hover:bg-blue-dark shadow-sm shadow-blue/20",
+  primary: "bg-accent text-white hover:bg-accent-dark",
   outline: "bg-transparent text-text border border-border hover:bg-surface-hover",
   ghost: "bg-transparent text-text hover:bg-surface-hover",
-  danger: "bg-danger text-white hover:bg-danger-dark shadow-sm shadow-danger/20",
+  danger: "bg-transparent text-danger border border-danger/40 hover:bg-danger-light",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-9 px-3 text-sm rounded-xl",
-  md: "h-11 px-5 text-sm rounded-2xl",
-  lg: "h-14 px-7 text-base rounded-2xl",
+  sm: "h-9 px-4 text-sm rounded-md",
+  md: "h-12 px-6 text-sm rounded-md",
+  lg: "h-14 px-7 text-body-lg rounded-lg",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

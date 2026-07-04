@@ -1,0 +1,493 @@
+/**
+ * DEPRECATED — superseded by the Document 01/12 token system, which now
+ * lives in tailwind.config.ts + src/design-system/*.ts. This file is no
+ * longer imported anywhere (see src/app/layout.tsx). Kept on disk only
+ * because file deletion in this workspace requires explicit user
+ * confirmation; safe to delete once you've confirmed nothing references it.
+ */
+:root {
+  --bg: #f8f7f2;
+  --card: #ffffff;
+  --primary: #12382a;
+  --primary-soft: #ddede3;
+  --text: #10251b;
+  --muted: #6f8378;
+  --success: #22c55e;
+  --amber: #f6c65b;
+  --danger: #f87171;
+  --purple: #7c5cff;
+  --shadow: 0 24px 60px rgba(18, 56, 42, 0.08);
+  --radius-xl: 32px;
+  --radius-lg: 24px;
+}
+
+.app-shell,
+.app-shell * {
+  box-sizing: border-box;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.72);
+  border-right: 1px solid rgba(18, 56, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.brand {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 40px;
+}
+
+.brand-icon {
+  font-size: 32px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.brand p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.nav {
+  display: grid;
+  gap: 8px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  text-decoration: none;
+  color: var(--muted);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.sidebar-card {
+  padding: 22px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #eef8f1, #ffffff);
+  box-shadow: var(--shadow);
+}
+
+.sidebar-card h3 {
+  margin: 8px 0;
+  font-size: 32px;
+}
+
+.small-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.main-content {
+  padding: 40px;
+}
+
+.dashboard-page {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 36px;
+  letter-spacing: -0.04em;
+}
+
+.page-header p {
+  color: var(--muted);
+  margin: 8px 0 0;
+  font-size: 17px;
+}
+
+.date-pill {
+  border: 1px solid rgba(18, 56, 42, 0.12);
+  background: white;
+  padding: 14px 18px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 2fr 0.8fr 0.9fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.hero-card {
+  min-height: 330px;
+  border-radius: var(--radius-xl);
+  padding: 36px;
+  color: white;
+  display: flex;
+  align-items: center;
+  background:
+    linear-gradient(90deg, rgba(18, 56, 42, 0.98), rgba(18, 56, 42, 0.72)),
+    radial-gradient(circle at 80% 20%, rgba(246, 198, 91, 0.5), transparent 35%),
+    linear-gradient(135deg, #12382a, #236348);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.hero-card h2 {
+  font-size: 42px;
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+  margin: 12px 0;
+  max-width: 620px;
+}
+
+.hero-card h3 {
+  font-size: 28px;
+  color: #5cff9d;
+  margin: 0 0 12px;
+}
+
+.hero-card p {
+  max-width: 520px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.hero-actions,
+.card-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  align-items: center;
+}
+
+.primary-btn,
+.secondary-btn,
+.purple-btn,
+.purple-soft-btn,
+.text-btn {
+  border: 0;
+  cursor: pointer;
+  font-weight: 800;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.primary-btn {
+  background: var(--success);
+  color: white;
+  padding: 16px 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  padding: 16px 22px;
+}
+
+.purple-btn {
+  background: var(--purple);
+  color: white;
+  padding: 14px 18px;
+}
+
+.purple-soft-btn {
+  background: rgba(124, 92, 255, 0.12);
+  color: var(--purple);
+  padding: 14px 18px;
+  margin-top: 18px;
+}
+
+.text-btn {
+  background: transparent;
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.bento-card {
+  background: var(--card);
+  border: 1px solid rgba(18, 56, 42, 0.08);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bento-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 30px 70px rgba(18, 56, 42, 0.12);
+}
+
+.bento-card.wide {
+  grid-column: span 2;
+}
+
+.card-title {
+  font-size: 17px;
+  font-weight: 800;
+  margin: 12px 0;
+}
+
+.card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+}
+
+.card-icon.green {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.card-icon.purple {
+  background: rgba(124, 92, 255, 0.12);
+  color: var(--purple);
+}
+
+.card-icon.amber {
+  background: rgba(246, 198, 91, 0.25);
+  color: #9a6500;
+}
+
+.big-money {
+  font-size: 56px;
+  margin: 8px 0;
+  color: #14783d;
+  letter-spacing: -0.06em;
+}
+
+.muted {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.muted-small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.highlight {
+  color: var(--purple);
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e7eee9;
+  overflow: hidden;
+  margin: 16px 0 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #14783d, #22c55e);
+  border-radius: 999px;
+}
+
+.between {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.soft-callout,
+.soft-banner {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 18px;
+  background: #eef8f1;
+  color: var(--primary);
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.plan-list,
+.activity-list {
+  display: grid;
+  gap: 18px;
+  margin: 18px 0;
+}
+
+.plan-row,
+.activity-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.plan-row span {
+  background: rgba(124, 92, 255, 0.12);
+  color: var(--purple);
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+.positive {
+  color: #15803d;
+}
+
+.negative {
+  color: #dc2626;
+}
+
+.neutral {
+  color: var(--purple);
+}
+
+.money-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 26px 0;
+}
+
+.flow-node {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.flow-node h3 {
+  margin: 4px 0 0;
+  font-size: 24px;
+}
+
+.flow-node p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.flow-node.earned {
+  background: #e6f7e9;
+}
+
+.flow-node.used {
+  background: #ffe7e1;
+}
+
+.flow-node.saved {
+  background: #e9f7e8;
+}
+
+.flow-arrow {
+  color: var(--muted);
+}
+
+.quote-card {
+  min-height: 140px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.4)),
+    linear-gradient(135deg, #f6dfb8, #e8f1df);
+  display: flex;
+  align-items: center;
+}
+
+.quote-card h2 {
+  font-size: 30px;
+  font-style: italic;
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .main-content {
+    padding: 24px;
+  }
+
+  .hero-grid,
+  .bento-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bento-card.wide {
+    grid-column: span 1;
+  }
+
+  .hero-card h2 {
+    font-size: 34px;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    gap: 16px;
+    flex-direction: column;
+  }
+}

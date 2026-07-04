@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { MobileHeader } from "@/components/layout/MobileHeader";
+import { Header } from "@/components/layout/Header";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
@@ -53,15 +53,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen w-full min-w-0 flex-col bg-bg md:flex-row">
+    <div className="flex min-h-screen w-full min-w-0 flex-col bg-bg">
       <Sidebar />
-      {/* min-w-0 is required here: without it, a horizontally-scrolling child
-          further down the tree (e.g. the day-filter chips on Shifts) can
-          force this flex item to grow to content width instead of staying
+      {/* md:pl-[272px] reserves space for the now-fixed-position Sidebar
+          (see Sidebar.tsx) instead of relying on flex layout to size around
+          it. min-w-0 is still required: without it, a horizontally-scrolling
+          child further down the tree (e.g. the day-filter chips on Shifts)
+          can force this item to grow to content width instead of staying
           capped at the viewport, which is what was pushing the whole page
           off-screen to the right on mobile. */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <MobileHeader />
+      <div className="flex min-w-0 flex-1 flex-col md:pl-[272px]">
+        <Header />
         <main className="min-w-0 flex-1 pb-20 md:pb-0">{children}</main>
       </div>
       <BottomNav />

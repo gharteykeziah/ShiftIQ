@@ -348,7 +348,7 @@ export default function ShiftsPage() {
               <select
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as ShiftCategory }))}
-                className="w-full rounded-2xl border-0 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
@@ -362,7 +362,7 @@ export default function ShiftsPage() {
               <select
                 value={form.day}
                 onChange={(e) => setForm((f) => ({ ...f, day: e.target.value as Day }))}
-                className="w-full rounded-2xl border-0 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
               >
                 {DAYS.map((d) => (
                   <option key={d} value={d}>

@@ -24,7 +24,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={cn(
-            "w-full rounded-2xl border-0 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted",
+            // Bordered, not just a flat fill: bg-bg and the Card it sits on
+            // are both pure white now, so a borderless white-on-white field
+            // was rendering invisibly (looked like empty space, not a box).
+            "w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text placeholder:text-muted",
             "focus:outline-none focus:ring-2 focus:ring-accent/40",
             error && "ring-2 ring-danger/50",
             className
