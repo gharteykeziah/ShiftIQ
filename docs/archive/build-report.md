@@ -1,4 +1,4 @@
-# Financial Reality Engine — Full Build Report
+# ShiftIQ — Full Build Report
 
 **What you built, from first line to finished system.**
 
@@ -29,7 +29,7 @@ Monthly  × 12/52 ≈ 0.2308
 
 **`Expense`** — same structure with an added category field. `weekly_amount()` uses the same conversion so rent ($1,200/month) and a streaming subscription ($10/month) are always compared in the same unit.
 
-This frequency normalization is the entire reason FRE can mix income and expenses at different cadences without the math being wrong. Every calculation in the system — projections, savings rate, risk score — works in weekly units because of this one design decision made at the start.
+This frequency normalization is the entire reason ShiftIQ can mix income and expenses at different cadences without the math being wrong. Every calculation in the system — projections, savings rate, risk score — works in weekly units because of this one design decision made at the start.
 
 `config.py` centralised every threshold, constant, and file path. Risk score cutoffs, savings rate bands, projection horizons, the database path — all defined once, referenced everywhere. Changing a threshold means changing one line.
 
@@ -215,7 +215,7 @@ Both exports reflect actual schedule data — not just the jobs table, but real 
 
 ## Layer 10 — Testing
 
-**File: `test_fre.py`** (1,133 lines, 140+ tests)
+**File: `test_shiftiq.py`** (1,133 lines, 140+ tests)
 
 You have a full pytest suite covering pure business logic. Notable classes:
 
@@ -282,7 +282,7 @@ Extracted into `schedule_service.sync_schedule_to_jobs(state)`. Pure Python, no 
 |---|---|---|
 | `page_schedule.py` | 1,478 | Schedule UI — 5 tabs |
 | `schedule_core.py` | 1,149 | Schedule backend |
-| `test_fre.py` | 1,133 | Full test suite |
+| `test_shiftiq.py` | 1,133 | Full test suite |
 | `shift_planner_ui.py` | 827 | Shift planner UI |
 | `shift_engine.py` | 799 | Shift logic engine |
 | `shift_parser.py` | 782 | Shift input parser |

@@ -58,7 +58,7 @@ The API will be available at `http://127.0.0.1:8000` and auto-generated docs at 
 ## Running the Tests
 
 ```bash
-python3 -m pytest test_fre.py -v
+python3 -m pytest test_shiftiq.py -v
 ```
 
 The test suite has 166 tests across 19 classes. None of them open the GUI or touch a real database — everything runs against in-memory state. A full pass takes under two seconds.
@@ -66,7 +66,7 @@ The test suite has 166 tests across 19 classes. None of them open the GUI or tou
 To run a specific test class:
 
 ```bash
-python3 -m pytest test_fre.py::TestFinancialState -v
+python3 -m pytest test_shiftiq.py::TestFinancialState -v
 ```
 
 CI runs the full suite automatically on every push and pull request (Python 3.10, 3.11, 3.12).
@@ -113,12 +113,12 @@ There is no auto-formatter enforced. Match the style of the file you're editing.
 git checkout -b your-branch-name
 ```
 
-2. **Make your changes.** If you're touching financial calculations, add or update a test in `test_fre.py`.
+2. **Make your changes.** If you're touching financial calculations, add or update a test in `test_shiftiq.py`.
 
 3. **Run the tests** and confirm they all pass:
 
 ```bash
-python3 -m pytest test_fre.py -v
+python3 -m pytest test_shiftiq.py -v
 ```
 
 4. **Commit with a descriptive message** using the project convention:

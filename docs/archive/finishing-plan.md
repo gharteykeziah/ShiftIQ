@@ -1,4 +1,4 @@
-# FRE — Senior Engineer Finishing Plan
+# ShiftIQ — Senior Engineer Finishing Plan
 **Target:** Production-level portfolio system. Google/Amazon internship tier.  
 **Constraint:** No UI redesign. No schema rewrites. Integration and completion only.
 
@@ -68,7 +68,7 @@ Business logic in the UI layer cannot be tested without instantiating a full Tk 
 ```
 schedule_service.py   ← NEW: sync_schedule_to_jobs(state)
 app.py                ← _sync_schedule_jobs() becomes: schedule_service.sync_schedule_to_jobs(self.state)
-test_fre.py           ← can now test sync logic without Tk
+test_shiftiq.py           ← can now test sync logic without Tk
 ```
 
 **Signature:**
@@ -124,7 +124,7 @@ A user with 3 jobs gets 3× the `extra_weekly` income in projections. This silen
 ```
 scenario_engine.py    ← fix project_balance() and compare_scenarios()
 financial_state.py    ← verify projected_income() applies raise/extra once to total
-test_fre.py           ← add parametrized test: 1 job vs 3 jobs with same extra_weekly must produce same total
+test_shiftiq.py           ← add parametrized test: 1 job vs 3 jobs with same extra_weekly must produce same total
 ```
 
 **Fix:**
@@ -148,7 +148,7 @@ def project_balance(self, state, weeks, scenario=None):
 Add `shift_impact(event, state) -> ShiftImpact` to `schedule_analytics.py`. Surface it in `page_schedule.py`'s Income tab as a "What if I remove this shift?" calculator.
 
 **Why it matters:**  
-This is what turns FRE from a tracker into a decision system. A student deciding whether to swap a shift or take a day off can see the exact income lost, how their weekly total changes, and what the new risk score would be. This is the feature that belongs in a portfolio description.
+This is what turns ShiftIQ from a tracker into a decision system. A student deciding whether to swap a shift or take a day off can see the exact income lost, how their weekly total changes, and what the new risk score would be. This is the feature that belongs in a portfolio description.
 
 **Where it connects:**
 ```
@@ -291,7 +291,7 @@ def job_efficiency_report(events: list, state=None) -> list["JobEfficiency"]:
 **Impact: Medium / Completeness**
 
 **What to build:**  
-In `page_analytics._trends()`, load `db.load_history()` and render a balance-over-time line chart using `charts.py`. If fewer than 3 snapshots exist, show a "Keep using FRE daily to build your trend data" message instead of an empty chart.
+In `page_analytics._trends()`, load `db.load_history()` and render a balance-over-time line chart using `charts.py`. If fewer than 3 snapshots exist, show a "Keep using ShiftIQ daily to build your trend data" message instead of an empty chart.
 
 **Why it matters:**  
 `record_snapshot()` is already called on every app launch (in `FinancialState.__init__`), so the data accumulates automatically. The history table likely already has records. An empty Trends tab when data exists is a silent gap that interviewers will notice.
@@ -309,14 +309,14 @@ database.py         ← load_history() already exists (no changes needed)
 **Impact: Medium / Portfolio Credibility**
 
 **What to build:**  
-Expand `test_fre.py` into a proper pytest suite. Target pure/business logic only — no Tk, no GUI.
+Expand `test_shiftiq.py` into a proper pytest suite. Target pure/business logic only — no Tk, no GUI.
 
 **Why it matters:**  
 A repo with no tests signals "prototype." A repo with 20 focused tests on core business logic signals "engineer." You don't need 100% coverage — you need the right tests on the right things.
 
 **Pytest structure:**
 ```
-test_fre.py
+test_shiftiq.py
 ├── TestCanonName              ← utils.py
 ├── TestJobModel               ← model.py weekly_income()
 ├── TestExpenseModel           ← model.py weekly_amount()
@@ -330,7 +330,7 @@ test_fre.py
 **Priority tests (write these first):**
 
 ```python
-# test_fre.py — priority tests
+# test_shiftiq.py — priority tests
 
 import pytest
 from utils import canon_name
@@ -497,7 +497,7 @@ class TestScheduleAnalytics:
         assert summary.total_hours == pytest.approx(8 + 4 + 4)   # 16h work
 ```
 
-**Run with:** `pytest test_fre.py -v --tb=short`
+**Run with:** `pytest test_shiftiq.py -v --tb=short`
 
 ---
 
@@ -572,7 +572,7 @@ state.jobs = []
 
 **How to run the stress suite:**
 ```python
-# test_fre.py — add a TestStress class
+# test_shiftiq.py — add a TestStress class
 import time
 
 class TestStress:

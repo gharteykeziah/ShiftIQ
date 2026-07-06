@@ -8,7 +8,7 @@ This document covers: the component diagram (convertible to a visual tool), data
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                           FINANCIAL REALITY ENGINE                           │
+│                                    SHIFTIQ                                   │
 │                                                                              │
 │  ┌─────────────┐   ┌──────────────────┐   ┌──────────────────────────────┐  │
 │  │  main.py    │   │   config.py       │   │         utils.py             │  │

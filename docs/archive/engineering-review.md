@@ -1,4 +1,4 @@
-# FRE — Senior Engineering Review
+# ShiftIQ — Senior Engineering Review
 
 **Scope:** Production-hardening for big-tech internship / entry-level SWE quality.
 No new features. Only architecture, correctness, maintainability, scalability, and testing.
@@ -9,7 +9,7 @@ No new features. Only architecture, correctness, maintainability, scalability, a
 
 ### What is already good
 
-**Pure analytics layer.** `shift_analytics.py` contains zero database calls and zero GUI imports. Every function takes a list and returns a value. This is the hardest architectural discipline to enforce and FRE does it correctly. It means the entire analytics surface is testable without a database or a running app.
+**Pure analytics layer.** `shift_analytics.py` contains zero database calls and zero GUI imports. Every function takes a list and returns a value. This is the hardest architectural discipline to enforce and ShiftIQ does it correctly. It means the entire analytics surface is testable without a database or a running app.
 
 **Single source of truth.** `financial_state.py` is the only place that computes income, expenses, risk score, and health score. `InsightEngine` explicitly delegates back to state rather than re-implementing. This is the correct pattern and it holds throughout.
 
@@ -17,7 +17,7 @@ No new features. Only architecture, correctness, maintainability, scalability, a
 
 **Config centralization.** Every threshold, path, and constant lives in `config.py`. No magic numbers scattered across files.
 
-**Dependency injection in tests.** `FakeState` in `test_fre.py` mirrors `FinancialState`'s public interface without touching the database. This enables 166 tests with no I/O — the right call.
+**Dependency injection in tests.** `FakeState` in `test_shiftiq.py` mirrors `FinancialState`'s public interface without touching the database. This enables 166 tests with no I/O — the right call.
 
 **Knapsack optimizer.** Correctly implemented, well-commented, includes a regression test that proves it beats the greedy-by-rate heuristic on a constructed counterexample. This is interview-ready code.
 
@@ -79,7 +79,7 @@ These are called from different code paths. If any caller calls `get_events()` b
 ```python
 # shift_analytics.py  line 2
 """
-schedule_analytics.py — Date-range income and schedule analytics for FRE.
+schedule_analytics.py — Date-range income and schedule analytics for ShiftIQ.
 ```
 
 The file is `shift_analytics.py`. The docstring says `schedule_analytics.py`. Multiple other files (`optimizer.py` line 36, `README.md`) also reference the old name. This tells a reader the module was renamed mid-development without updating callsites — which is exactly what happened, and it's visible.
@@ -99,7 +99,7 @@ This import is 264 lines into a 386-line file, after multiple function definitio
 
 #### F. Two-system income model with no reconciliation
 
-FRE has two parallel income representations:
+ShiftIQ has two parallel income representations:
 
 - **Jobs model** (`financial_state.py`): weekly income from `Job` objects stored in the `jobs` table
 - **Schedule model** (`shift_analytics.py`): income computed from `ScheduleEvent` objects in the `events` table
@@ -562,7 +562,7 @@ def test_monte_carlo_deterministic_with_seed():
 ```
 
 **FakeState divergence guard:**
-`FakeState` in `test_fre.py` duplicates `FinancialState`'s calculation logic. Add a test that verifies they agree:
+`FakeState` in `test_shiftiq.py` duplicates `FinancialState`'s calculation logic. Add a test that verifies they agree:
 
 ```python
 def test_fake_state_matches_real_state_calculations(tmp_path):
@@ -577,7 +577,7 @@ def test_fake_state_matches_real_state_calculations(tmp_path):
     assert fake.savings_rate()    == real.savings_rate()
 ```
 
-**Test file organization.** The current single `test_fre.py` (1200+ lines) works but makes it hard to run one subsystem's tests quickly. At Google/Amazon scale, the convention is:
+**Test file organization.** The current single `test_shiftiq.py` (1200+ lines) works but makes it hard to run one subsystem's tests quickly. At Google/Amazon scale, the convention is:
 
 ```
 tests/
@@ -672,7 +672,7 @@ deficit_count = int(np.sum(ending_balances_arr < 0))  # vectorized, stays in Num
 | P2 | Convert `Job` / `Expense` to dataclasses | `model.py`, tests | 30 min |
 | P2 | API integration tests | new `tests/test_api.py` | 45 min |
 | P3 | Property-based tests for optimizer | new test file | 30 min |
-| P3 | Split `test_fre.py` into test directory | test files | 30 min |
+| P3 | Split `test_shiftiq.py` into test directory | test files | 30 min |
 
 P0 items are correctness/clarity fixes with no behavior change.
 P1 items improve robustness and remove latent bugs.

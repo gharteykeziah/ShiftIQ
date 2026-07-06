@@ -1,4 +1,4 @@
-# Financial Reality Engine — Minimum Lovable Product (MLP) Strategy
+# ShiftIQ — Minimum Lovable Product (MLP) Strategy
 
 **Constraint honored throughout: zero backend changes.** Every recommendation below routes through engines that already exist — `financial_state.py`, `schedule_analytics.shift_impact()`, `optimizer.py`, `simulation.run_monte_carlo()`. This is a UI and information-architecture redesign, not a rebuild.
 
@@ -6,7 +6,7 @@
 
 ## 1. MLP Product Definition
 
-FRE today is a financial *tracking* system wearing seven tabs of analytics. The MLP reframes it as a financial *decision* tool with one job: tell you, instantly, what any change to your schedule does to your money. The product is no longer "manage your finances" — it's "before you take or drop a shift, know the real cost." Everything else FRE can already compute (risk score, Monte Carlo, goals, trends) becomes supporting detail a user can dig into later, not the thing they see first. The backend's actual differentiator — `shift_impact()` running in ~3 microseconds against a single source of truth — gets a UI that matches its speed: tap a shift, see the consequence, no navigation required.
+ShiftIQ today is a financial *tracking* system wearing seven tabs of analytics. The MLP reframes it as a financial *decision* tool with one job: tell you, instantly, what any change to your schedule does to your money. The product is no longer "manage your finances" — it's "before you take or drop a shift, know the real cost." Everything else ShiftIQ can already compute (risk score, Monte Carlo, goals, trends) becomes supporting detail a user can dig into later, not the thing they see first. The backend's actual differentiator — `shift_impact()` running in ~3 microseconds against a single source of truth — gets a UI that matches its speed: tap a shift, see the consequence, no navigation required.
 
 ---
 
@@ -20,7 +20,7 @@ Nothing below is a backend cut — these engines stay callable, just not surface
 - **Schedule's 5 sub-tabs** (Week View / Add Event / My Events / Free Time / Import) — a first-time user should never have to choose among five tabs to add their own schedule. Collapse Add/My Events/Import into one "+" action sheet; Free Time becomes a detail view, not a tab.
 - **Forecasting's 3-tab structure** (Projection / Scenarios / Simulation) — Monte Carlo with manual "weeks" and "runs" number inputs is a power-user surface, not a first-screen one. It becomes a single button result, not a configuration form.
 - **The multi-bullet "Quick Insights" card** on the dashboard — currently shows 3 separate insight strings. Cut to one headline insight; the rest become available on tap, not shown by default.
-- **Raw Job/Expense CRUD as a top-level "Data" nav item** — income should visibly come from the schedule (it already does, architecturally); a standalone "Data Management" tab undercuts that story and makes FRE look like a budgeting app again.
+- **Raw Job/Expense CRUD as a top-level "Data" nav item** — income should visibly come from the schedule (it already does, architecturally); a standalone "Data Management" tab undercuts that story and makes ShiftIQ look like a budgeting app again.
 
 Net result: 7 nav items → 3.
 
@@ -51,7 +51,7 @@ Nothing else. No charts, no risk-factor breakdowns, no savings rate percentage, 
 5. The user realizes, without being told: *this app knows what my schedule is worth, shift by shift, in real time.*
 6. That's the aha moment — total elapsed time under 10 seconds, zero forms filled out, zero tabs visited.
 
-Everything FRE can do beyond this (Monte Carlo, optimizer, trends, goals) is now something the user *seeks out* because they've already trusted the core number — not something they had to wade through to find it.
+Everything ShiftIQ can do beyond this (Monte Carlo, optimizer, trends, goals) is now something the user *seeks out* because they've already trusted the core number — not something they had to wade through to find it.
 
 ---
 

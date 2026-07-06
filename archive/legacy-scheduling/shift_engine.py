@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# DEPRECATED — do not import this file in new code.
+# ARCHIVED / DEPRECATED — do not import this file in new code.
 #
 # shift_engine.py is the first-generation scheduling backend.
 # schedule_core.py is the production version with:
@@ -8,11 +8,12 @@
 #   - dataclass-based models (Job, Shift, FreeBlock)
 #   - all four modes including IncomeMode (ported here on Day 1 refactor)
 #
-# This file is kept only for backward compatibility with shift_planner_ui.py.
+# Nothing in the live app imports this file. It is kept only for reference
+# and for backward compatibility with the archived shift_planner_ui.py.
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
-shift_engine.py — Scheduling backend for the ShiftIQ (ShiftIQ).
+shift_engine.py — Scheduling backend for ShiftIQ.
 
 Designed for part-time workers with VARIABLE weekly schedules.
 Users define job profiles once, then enter new shifts each week.

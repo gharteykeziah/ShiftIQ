@@ -176,7 +176,7 @@ class App(tk.Tk):
         tk.Frame(self.sidebar_frame, bg=theme.BORDER, height=1).pack(fill="x")
         tk.Frame(self.sidebar_frame, bg=theme.SIDEBAR, height=6).pack(fill="x")
 
-        # Collapsed to 3 items per FRE_MLP_Product_Strategy.md — Dashboard,
+        # Collapsed to 3 items per docs/archive/mlp-product-strategy.md — Dashboard,
         # Analytics, Forecasting, Goals, Data, and Settings all still exist
         # and still work; they're one tap away via "More" instead of
         # competing with Home and Schedule for sidebar space.

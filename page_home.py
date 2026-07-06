@@ -1,7 +1,7 @@
 """
 page_home.py — MLP Home page.
 
-Single-screen decision surface, per FRE_MLP_Product_Strategy.md:
+Single-screen decision surface, per docs/archive/mlp-product-strategy.md:
   - One headline number (net weekly flow), framed as an outcome
   - One plain-English stability badge instead of a numeric score
   - This week's Work shifts, each tappable to reveal shift_impact()
@@ -12,7 +12,7 @@ Single-screen decision surface, per FRE_MLP_Product_Strategy.md:
 This file contains ZERO new financial logic. Every number on screen is a
 direct call into financial_state.py, insight_engine.py,
 schedule_analytics.py, or optimizer.py — all of which existed before this
-page and are already covered by test_fre.py.
+page and are already covered by test_shiftiq.py.
 """
 from __future__ import annotations
 

@@ -40,7 +40,7 @@ jobs:
       - name: Run test suite
         env:
           SECRET_KEY: ci-test-secret-key-minimum-32-chars-long
-        run: python -m pytest test_fre.py test_api.py -v
+        run: python -m pytest test_shiftiq.py test_api.py -v
 
   api-smoke-test:
     runs-on: ubuntu-latest

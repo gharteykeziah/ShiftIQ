@@ -1,8 +1,8 @@
 """
-test_fre.py — Automated test suite for the ShiftIQ.
+test_shiftiq.py — Automated test suite for ShiftIQ.
 
 Run with:
-    python3 -m pytest test_fre.py -v
+    python3 -m pytest test_shiftiq.py -v
 
 All tests are self-contained. The database tests use a temporary file —
 nothing is written to the real finance.db during testing.
@@ -679,7 +679,7 @@ class TestMonteCarlo:
 @pytest.fixture
 def temp_db(monkeypatch, tmp_path):
     """Point db_connection.SQLITE_FILE at a fresh temp file for each test."""
-    db_file = str(tmp_path / "test_fre.db")
+    db_file = str(tmp_path / "test_shiftiq.db")
     monkeypatch.setattr(db_connection, "SQLITE_FILE", db_file)
     database.init_db()
     return db_file

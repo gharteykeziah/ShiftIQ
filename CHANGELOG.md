@@ -40,7 +40,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [1.3.0] — 2026-07-03
+## [1.3.0] — 2026-07-02
 
 ### Added
 - `PUT /api/balance` — update current balance via API
@@ -122,7 +122,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.1.0] — 2026-06-18
 
 ### Added
-- Initial release: Financial Reality Engine with tkinter desktop app
+- Initial release: ShiftIQ desktop app (tkinter)
 - Monte Carlo simulation (NumPy-vectorized, 5× speedup over pure Python)
 - SQLite persistence via `database.py`
 - Core data models (`Job`, `Expense`) with frequency-aware weekly conversion

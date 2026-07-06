@@ -1,7 +1,7 @@
 """
 page_more.py — Single list page linking to every secondary feature.
 
-Per FRE_MLP_Product_Strategy.md: the sidebar collapses from 7 nav items to
+Per docs/archive/mlp-product-strategy.md: the sidebar collapses from 7 nav items to
 3 (Home, Schedule, More). Nothing is deleted — Dashboard, Analytics,
 Forecasting, Goals, Data Management, and Settings all still exist and
 still work exactly as before. They're just one tap away from here instead

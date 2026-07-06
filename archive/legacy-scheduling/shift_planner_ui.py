@@ -1,14 +1,23 @@
 """
 shift_planner_ui.py — Standalone tkinter UI for ShiftIQ's schedule module.
 
-Run this file directly:
-    python shift_planner_ui.py
+ARCHIVED: this predates schedule_core.py's integration into page_schedule.py
+and is not launched by the main app (main.py / app.py). Kept for reference
+only — nothing in the live app imports this file.
 
-All data is read/written through schedule_core.py (fre_jobs / fre_shifts tables).
+Run this file directly from the repo root:
+    python archive/legacy-scheduling/shift_planner_ui.py
+
+All data is read/written through schedule_core.py (schedule_jobs / schedule_shifts tables).
 """
 
+import os
+import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
+
+# schedule_core.py lives at the repo root, two levels up from this archived file.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 from schedule_core import (
     Scheduler, ValidationError,

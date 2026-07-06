@@ -69,7 +69,7 @@ uvicorn api:app --reload
 166 pytest tests across 19 classes with no GUI instantiation and no live database. The test suite covers the knapsack optimizer including the greedy counterexample regression, Monte Carlo output stability, overnight shift edge cases, and database integrity.
 
 ```bash
-python3 -m pytest test_fre.py -v
+python3 -m pytest test_shiftiq.py -v
 ```
 
 GitHub Actions runs the full suite on every push across Python 3.10, 3.11, and 3.12.
@@ -149,7 +149,7 @@ Reproduce: `python3 scripts/benchmark_monte_carlo.py`
 ├── page_home.py            # Home: shift strip, tap-impact cards, optimizer
 ├── exceptions.py           # Shared exception classes (ValidationError)
 ├── config.py               # All constants in one place
-├── test_fre.py             # 166 tests, no GUI or DB required
+├── test_shiftiq.py         # 166 tests, no GUI or DB required
 └── scripts/
     └── benchmark_monte_carlo.py
 ```
