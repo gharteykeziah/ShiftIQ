@@ -61,6 +61,7 @@ export function Sidebar() {
                 href={href}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors duration-200",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
                   active ? "bg-nav-selected text-accent" : "text-muted hover:bg-surface-hover hover:text-text"
                 )}
               >
@@ -91,7 +92,7 @@ export function Sidebar() {
         </div>
         <button
           onClick={logout}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted transition-colors duration-200 hover:bg-surface-hover hover:text-danger"
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted transition-colors duration-200 hover:bg-surface-hover hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <LogOut size={20} strokeWidth={2} aria-hidden="true" />
           Log out

@@ -133,8 +133,11 @@ export default function JobsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6 sm:p-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text">Jobs</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-text">Jobs</h1>
+          <p className="mt-1 text-sm text-muted">Track your income sources and how often they pay.</p>
+        </div>
         <Button size="sm" onClick={openAddForm}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           Add job
@@ -168,14 +171,14 @@ export default function JobsPage() {
                 <p className="text-sm font-semibold text-accent">${job.weekly_income.toFixed(2)}/wk</p>
                 <button
                   onClick={() => openEditForm(job)}
-                  className="text-muted hover:text-text"
+                  className="rounded-full text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                   aria-label={`Edit ${job.name}`}
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => setDeleteTarget(job)}
-                  className="text-muted hover:text-danger"
+                  className="rounded-full text-muted hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                   aria-label={`Delete ${job.name}`}
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -215,7 +218,11 @@ export default function JobsPage() {
               </option>
             ))}
           </Select>
-          {formError && <p className="text-sm text-danger">{formError}</p>}
+          {formError && (
+            <p role="alert" className="text-sm text-danger">
+              {formError}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>
               Cancel

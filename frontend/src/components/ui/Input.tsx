@@ -13,6 +13,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, hint, id, ...props }, ref) => {
     const autoId = useId();
     const inputId = id ?? autoId;
+    // Screen readers only announce the error/hint text if the input points
+    // to it via aria-describedby — visually adjacent text isn't enough.
+    // aria-invalid additionally flags the field itself as failing
+    // validation, which most screen readers announce on focus.
+    const messageId = error || hint ? `${inputId}-message` : undefined;
     return (
       <div className="w-full">
         {label && (
@@ -23,6 +28,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={messageId}
           className={cn(
             // Bordered, not just a flat fill: bg-bg and the Card it sits on
             // are both pure white now, so a borderless white-on-white field
@@ -35,9 +42,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error ? (
-          <p className="mt-1.5 text-xs text-danger">{error}</p>
+          <p id={messageId} className="mt-1.5 text-xs text-danger">
+            {error}
+          </p>
         ) : hint ? (
-          <p className="mt-1.5 text-xs text-muted">{hint}</p>
+          <p id={messageId} className="mt-1.5 text-xs text-muted">
+            {hint}
+          </p>
         ) : null}
       </div>
     );

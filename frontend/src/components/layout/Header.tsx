@@ -44,7 +44,7 @@ export function Header() {
         <button
           onClick={logout}
           aria-label="Log out"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-200 hover:bg-surface-hover hover:text-danger md:hidden"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-200 hover:bg-surface-hover hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 md:hidden"
         >
           <LogOut size={18} aria-hidden="true" />
         </button>

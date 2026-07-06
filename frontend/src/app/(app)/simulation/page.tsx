@@ -105,22 +105,39 @@ export default function SimulationPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 sm:p-10">
-      <h1 className="text-2xl font-bold text-text">Simulation</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-text">Simulation</h1>
+        <p className="mt-1 text-sm text-muted">
+          Stress-test your finances against random real-world events, or model a single scenario.
+        </p>
+      </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="tablist" aria-label="Simulation type">
         <button
+          type="button"
+          id="tab-monte-carlo"
+          role="tab"
+          aria-selected={tab === "monte-carlo"}
+          aria-controls="panel-monte-carlo"
           onClick={() => setTab("monte-carlo")}
           className={cn(
             "rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2",
             tab === "monte-carlo" ? "bg-text text-white" : "bg-surface text-muted hover:bg-surface-hover"
           )}
         >
           Monte Carlo
         </button>
         <button
+          type="button"
+          id="tab-whatif"
+          role="tab"
+          aria-selected={tab === "whatif"}
+          aria-controls="panel-whatif"
           onClick={() => setTab("whatif")}
           className={cn(
             "rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2",
             tab === "whatif" ? "bg-text text-white" : "bg-surface text-muted hover:bg-surface-hover"
           )}
         >
@@ -129,7 +146,7 @@ export default function SimulationPage() {
       </div>
 
       {tab === "monte-carlo" ? (
-        <div className="space-y-6">
+        <div id="panel-monte-carlo" role="tabpanel" aria-labelledby="tab-monte-carlo" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Run 500 possible futures</CardTitle>
@@ -153,7 +170,11 @@ export default function SimulationPage() {
                 Run simulation
               </Button>
             </form>
-            {mcError && <p className="mt-3 text-sm text-danger">{mcError}</p>}
+            {mcError && (
+              <p role="alert" className="mt-3 text-sm text-danger">
+                {mcError}
+              </p>
+            )}
           </Card>
 
           {mcResult && (
@@ -218,7 +239,7 @@ export default function SimulationPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-6">
+        <div id="panel-whatif" role="tabpanel" aria-labelledby="tab-whatif" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>What if something happened?</CardTitle>
@@ -253,7 +274,11 @@ export default function SimulationPage() {
                   onChange={(e) => setWiWeeks(e.target.value)}
                 />
               </div>
-              {wiError && <p className="text-sm text-danger">{wiError}</p>}
+              {wiError && (
+                <p role="alert" className="text-sm text-danger">
+                  {wiError}
+                </p>
+              )}
               <Button type="submit" isLoading={wiLoading}>
                 Run simulation
               </Button>

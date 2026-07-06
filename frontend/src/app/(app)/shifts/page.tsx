@@ -227,8 +227,13 @@ export default function ShiftsPage() {
 
   return (
     <div className="mx-auto min-w-0 max-w-4xl space-y-6 p-6 sm:p-10">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-text">Shifts</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-text">Shifts</h1>
+          <p className="mt-1 text-sm text-muted">
+            Your work schedule — used to calculate income, today&apos;s plan, and the optimizer.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4" aria-hidden="true" />
@@ -245,13 +250,16 @@ export default function ShiftsPage() {
         </div>
       </div>
 
-      <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+      <div className="flex min-w-0 gap-2 overflow-x-auto pb-1" role="group" aria-label="Filter shifts by day">
         {(["All", ...DAYS] as const).map((d) => (
           <button
             key={d}
+            type="button"
             onClick={() => setDayFilter(d)}
+            aria-pressed={dayFilter === d}
             className={cn(
               "shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-150",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2",
               dayFilter === d ? "bg-text text-white" : "bg-surface text-muted hover:bg-surface-hover"
             )}
           >
@@ -300,14 +308,14 @@ export default function ShiftsPage() {
               <div className="flex shrink-0 items-center gap-4">
                 <button
                   onClick={() => openEditForm(shift)}
-                  className="text-muted hover:text-text"
+                  className="rounded-full text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                   aria-label={`Edit ${shift.title}`}
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => setDeleteTarget(shift)}
-                  className="text-muted hover:text-danger"
+                  className="rounded-full text-muted hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                   aria-label={`Delete ${shift.title}`}
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -399,7 +407,11 @@ export default function ShiftsPage() {
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
           />
 
-          {formError && <p className="text-sm text-danger">{formError}</p>}
+          {formError && (
+            <p role="alert" className="text-sm text-danger">
+              {formError}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>
               Cancel
@@ -445,7 +457,11 @@ export default function ShiftsPage() {
             hint="We'll pick the combination of your logged shifts that maximizes income within this budget."
             required
           />
-          {optimizeError && <p className="text-sm text-danger">{optimizeError}</p>}
+          {optimizeError && (
+            <p role="alert" className="text-sm text-danger">
+              {optimizeError}
+            </p>
+          )}
           <Button type="submit" className="w-full" isLoading={isOptimizing}>
             Run optimizer
           </Button>

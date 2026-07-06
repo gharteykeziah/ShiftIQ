@@ -116,7 +116,10 @@ export default function GoalsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6 sm:p-10">
-      <h1 className="text-2xl font-bold text-text">Goals</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-text">Goals</h1>
+        <p className="mt-1 text-sm text-muted">Calculators for savings targets, progress, and your emergency fund.</p>
+      </div>
 
       <div className="grid grid-cols-3 gap-3">
         <IconCard icon={Target} label="Weeks to Goal" selected={tab === "weeks"} onClick={() => setTab("weeks")} />
@@ -156,7 +159,11 @@ export default function GoalsPage() {
             </div>
             <Button type="submit">Calculate</Button>
           </form>
-          {weeksError && <p className="mt-3 text-sm text-danger">{weeksError}</p>}
+          {weeksError && (
+            <p role="alert" className="mt-3 text-sm text-danger">
+              {weeksError}
+            </p>
+          )}
           {weeksResult !== undefined && !weeksError && (
             <div className="mt-4 space-y-2 border-t border-border/60 pt-4 text-sm">
               {weeksResult === null ? (
@@ -209,7 +216,11 @@ export default function GoalsPage() {
             </div>
             <Button type="submit">Show progress</Button>
           </form>
-          {progressError && <p className="mt-3 text-sm text-danger">{progressError}</p>}
+          {progressError && (
+            <p role="alert" className="mt-3 text-sm text-danger">
+              {progressError}
+            </p>
+          )}
           {progressResult != null && !progressError && (
             <div className="mt-4 space-y-3 border-t border-border/60 pt-4">
               {(() => {

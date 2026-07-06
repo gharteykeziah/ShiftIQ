@@ -162,8 +162,11 @@ export default function ExpensesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6 sm:p-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text">Expenses</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-text">Expenses</h1>
+          <p className="mt-1 text-sm text-muted">Track your bills and spending, categorized and dated.</p>
+        </div>
         <Button size="sm" onClick={openAddForm}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           Add expense
@@ -202,14 +205,14 @@ export default function ExpensesPage() {
                 <p className="text-sm font-semibold text-danger">${expense.weekly_amount.toFixed(2)}/wk</p>
                 <button
                   onClick={() => openEditForm(expense)}
-                  className="text-muted hover:text-text"
+                  className="rounded-full text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                   aria-label={`Edit ${expense.name}`}
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => setDeleteTarget(expense)}
-                  className="text-muted hover:text-danger"
+                  className="rounded-full text-muted hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                   aria-label={`Delete ${expense.name}`}
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -267,7 +270,11 @@ export default function ExpensesPage() {
               </option>
             ))}
           </Select>
-          {formError && <p className="text-sm text-danger">{formError}</p>}
+          {formError && (
+            <p role="alert" className="text-sm text-danger">
+              {formError}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>
               Cancel

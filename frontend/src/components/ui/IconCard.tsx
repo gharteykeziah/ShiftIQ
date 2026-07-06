@@ -24,6 +24,7 @@ export function IconCard({ icon: Icon, label, selected, onClick, className }: Ic
       aria-pressed={selected}
       className={cn(
         "flex flex-col items-start gap-3 rounded-2xl p-4 text-left transition-colors duration-150",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2",
         selected ? "bg-text text-white" : "bg-surface text-text hover:bg-surface-hover",
         className
       )}

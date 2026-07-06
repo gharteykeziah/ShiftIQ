@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
@@ -235,6 +236,57 @@ export default function TodayPage() {
           </CardHeader>
           <Button onClick={load}>Try again</Button>
         </Card>
+      </div>
+    );
+  }
+
+  // A brand-new account has no balance, no income, no expenses, and no
+  // shifts — every number on this page would render as a confusing wall of
+  // $0s and the headline logic above would produce a misleading "you're on
+  // track" message with nothing behind it. Show an explicit getting-started
+  // state instead of pretending there's a real financial picture to show.
+  const hasNoData =
+    state.balance === 0 &&
+    state.weekly_income === 0 &&
+    state.weekly_expenses === 0 &&
+    shifts.length === 0 &&
+    expenses.length === 0;
+
+  if (hasNoData) {
+    return (
+      <div className="mx-auto max-w-content px-5 py-8 md:px-12 md:py-10">
+        <div className="rounded-hero border border-border bg-surface px-8 py-16 text-center md:px-16 md:py-20">
+          <p className="text-sm font-medium text-muted">
+            Welcome, {user ? displayName(user.email) : "there"}.
+          </p>
+          <h1 className="mx-auto mt-3 max-w-lg font-serif text-[32px] font-normal leading-tight tracking-tight text-text md:text-hero">
+            Let&apos;s get your first week set up.
+          </h1>
+          <p className="mx-auto mt-4 max-w-md text-body-lg text-muted">
+            Add a job or a shift and a bill or two, and ShiftIQ will start telling you what to do
+            with your money each day.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/jobs"
+              className="inline-flex h-12 items-center justify-center rounded-md bg-accent px-6 text-sm font-medium text-white transition-colors duration-200 hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2"
+            >
+              Add a job
+            </Link>
+            <Link
+              href="/shifts"
+              className="inline-flex h-12 items-center justify-center rounded-md border border-border px-6 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2"
+            >
+              Add a shift
+            </Link>
+            <Link
+              href="/expenses"
+              className="inline-flex h-12 items-center justify-center rounded-md border border-border px-6 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2"
+            >
+              Add an expense
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

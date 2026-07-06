@@ -18,6 +18,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, hint, id, children, ...props }, ref) => {
     const autoId = useId();
     const selectId = id ?? autoId;
+    const messageId = error || hint ? `${selectId}-message` : undefined;
     return (
       <div className="w-full">
         {label && (
@@ -28,6 +29,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         <select
           ref={ref}
           id={selectId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={messageId}
           className={cn(
             "w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40",
             error && "ring-2 ring-danger/50",
@@ -38,9 +41,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           {children}
         </select>
         {error ? (
-          <p className="mt-1.5 text-xs text-danger">{error}</p>
+          <p id={messageId} className="mt-1.5 text-xs text-danger">
+            {error}
+          </p>
         ) : hint ? (
-          <p className="mt-1.5 text-xs text-muted">{hint}</p>
+          <p id={messageId} className="mt-1.5 text-xs text-muted">
+            {hint}
+          </p>
         ) : null}
       </div>
     );

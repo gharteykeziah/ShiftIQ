@@ -37,6 +37,7 @@ export function BottomNav() {
               href={href}
               className={cn(
                 "flex min-h-[44px] flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors duration-200",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset",
                 active ? "text-accent" : "text-muted"
               )}
             >
@@ -47,7 +48,7 @@ export function BottomNav() {
         })}
         <button
           onClick={() => setMoreOpen(true)}
-          className="flex min-h-[44px] flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium text-muted transition-colors duration-200"
+          className="flex min-h-[44px] flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium text-muted transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
           aria-haspopup="dialog"
         >
           <MoreHorizontal size={20} strokeWidth={2} aria-hidden="true" />
@@ -62,7 +63,7 @@ export function BottomNav() {
               key={href}
               href={href}
               onClick={() => setMoreOpen(false)}
-              className="flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-text hover:bg-surface-hover"
+              className="flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-text hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               <Icon size={20} strokeWidth={2} aria-hidden="true" />
               {label}
@@ -73,7 +74,7 @@ export function BottomNav() {
               setMoreOpen(false);
               logout();
             }}
-            className="flex min-h-[44px] w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-muted hover:bg-surface-hover hover:text-danger"
+            className="flex min-h-[44px] w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-muted hover:bg-surface-hover hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             <LogOut size={20} strokeWidth={2} aria-hidden="true" />
             Log out

@@ -182,7 +182,11 @@ export function ImportScheduleModal({ open, onClose, token, onImported }: Import
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
             </label>
           </div>
-          {parseError && <p className="text-sm text-danger">{parseError}</p>}
+          {parseError && (
+            <p role="alert" className="text-sm text-danger">
+              {parseError}
+            </p>
+          )}
           <div className="flex justify-end">
             <Button type="button" variant="ghost" onClick={handleClose}>
               Cancel
@@ -315,7 +319,11 @@ export function ImportScheduleModal({ open, onClose, token, onImported }: Import
           </div>
           {importProgress === includedShifts.length && (
             <>
-              {importError && <p className="text-sm text-danger">{importError}</p>}
+              {importError && (
+                <p role="alert" className="text-sm text-danger">
+                  {importError}
+                </p>
+              )}
               <Button type="button" onClick={handleClose}>
                 Done
               </Button>
