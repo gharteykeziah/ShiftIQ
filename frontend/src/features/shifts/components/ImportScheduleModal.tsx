@@ -5,9 +5,11 @@ import { Upload, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { ShiftCategory } from "@/lib/types";
 import { parseScheduleCsv, type ParsedShift } from "@/lib/scheduleImport";
+import { formatTime12h } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 
 interface ImportScheduleModalProps {
   open: boolean;
@@ -18,15 +20,11 @@ interface ImportScheduleModalProps {
 
 type Step = "upload" | "rates" | "review" | "importing";
 
-function formatTime12h(time: string): string {
-  const [hStr, mStr] = time.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr);
-  const ampm = h < 12 ? "AM" : "PM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-}
-
+// Deliberately not the shared lib/utils.ts hoursBetween(): this one keeps 2
+// decimal places instead of 1, since it's summed across every shift in an
+// imported schedule (potentially dozens) before being multiplied by a rate —
+// the coarser 1-decimal rounding used for on-screen display elsewhere would
+// compound into a visibly wrong total income here.
 function hoursBetween(start: string, end: string): number {
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
@@ -199,20 +197,13 @@ export function ImportScheduleModal({ open, onClose, token, onImported }: Import
             Found {jobCodes.length} job label{jobCodes.length === 1 ? "" : "s"} on your schedule. Set an hourly rate
             (and title, if you want something friendlier than the raw label) for each.
           </p>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-text">Category (applies to all)</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as ShiftCategory)}
-              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
-            >
-              {(["Work", "Class", "Study", "Meeting", "Personal", "Other"] as ShiftCategory[]).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select label="Category (applies to all)" value={category} onChange={(e) => setCategory(e.target.value as ShiftCategory)}>
+            {(["Work", "Class", "Study", "Meeting", "Personal", "Other"] as ShiftCategory[]).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
           <div className="max-h-[45vh] space-y-4 overflow-y-auto pr-1">
             {jobCodes.map((code) => (
               <div key={code} className="grid grid-cols-2 gap-3 rounded-lg border border-border p-4">

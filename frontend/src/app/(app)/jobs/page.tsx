@@ -1,14 +1,17 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Plus, Pencil, Trash2, Briefcase } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import type { JobOut, Frequency } from "@/lib/types";
+import { useAsync } from "@/hooks/useAsync";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 
@@ -27,9 +30,12 @@ export default function JobsPage() {
   const { token } = useAuth();
   const { showToast } = useToast();
 
-  const [jobs, setJobs] = useState<JobOut[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: jobs,
+    isLoading,
+    error,
+    reload: load,
+  } = useAsync<JobOut[]>(() => (token ? api.jobs.list(token) : null), [token], "Something went wrong loading your jobs.");
 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<JobFormState>(EMPTY_FORM);
@@ -38,24 +44,6 @@ export default function JobsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<JobOut | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!token) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await api.jobs.list(token);
-      setJobs(res);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong loading your jobs.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   function openAddForm() {
     setForm(EMPTY_FORM);
@@ -216,20 +204,17 @@ export default function JobsPage() {
             hint="Total pay per period below, not an hourly rate — e.g. $450 for Weekly means $450/week total."
             required
           />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-text">Frequency</label>
-            <select
-              value={form.frequency}
-              onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value as Frequency }))}
-              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
-            >
-              {FREQUENCIES.map((freq) => (
-                <option key={freq} value={freq}>
-                  {freq}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Frequency"
+            value={form.frequency}
+            onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value as Frequency }))}
+          >
+            {FREQUENCIES.map((freq) => (
+              <option key={freq} value={freq}>
+                {freq}
+              </option>
+            ))}
+          </Select>
           {formError && <p className="text-sm text-danger">{formError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>
@@ -242,19 +227,14 @@ export default function JobsPage() {
         </form>
       </Modal>
 
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete this job?">
-        <p className="mb-4 text-sm text-muted">
-          Remove &quot;{deleteTarget?.name}&quot;? This can&apos;t be undone.
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>
-            Delete
-          </Button>
-        </div>
-      </Modal>
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete this job?"
+        itemName={deleteTarget?.name ?? ""}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }

@@ -20,13 +20,9 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Ca
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { StatCard } from "@/components/ui/StatCard";
-import { cn } from "@/lib/utils";
+import { cn, money } from "@/lib/utils";
 
 type Tab = "monte-carlo" | "whatif";
-
-function money(n: number): string {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 export default function SimulationPage() {
   const { token } = useAuth();

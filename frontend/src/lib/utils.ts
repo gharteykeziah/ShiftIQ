@@ -17,6 +17,31 @@ export function hoursBetween(start: string, end: string): number {
   return Math.round((mins / 60) * 10) / 10;
 }
 
+/** "HH:MM" 24h time string formatted as 12h with AM/PM, e.g. "09:00" -> "9:00 AM". */
+export function formatTime12h(time: string): string {
+  const [hStr, mStr] = time.split(":");
+  const h = Number(hStr);
+  const m = Number(mStr);
+  const ampm = h < 12 ? "AM" : "PM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+/** Dollar amount with cents, e.g. 1234.5 -> "$1,234.50". */
+export function money(n: number): string {
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Dollar amount rounded to the nearest whole dollar, e.g. 1234.5 -> "$1,235". */
+export function moneyRounded(n: number): string {
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+/** First two letters of an email, upper-cased, for an avatar badge. */
+export function initials(email: string): string {
+  return email.slice(0, 2).toUpperCase();
+}
+
 /** Monday-start ISO date key for the week containing `d`. */
 function weekKey(d: Date): string {
   const date = new Date(d);

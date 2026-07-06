@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, createContext, useCallback, useContext, useEffect, useState } from "react";
+import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, Info, AlertTriangle, X } from "lucide-react";
 
@@ -57,8 +57,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 3000);
   }, []);
 
+  // showToast is already a stable reference (useCallback with no deps), but
+  // wrapping it in a fresh object literal on every render still changes the
+  // context value's identity — which would re-render every page that calls
+  // useToast() each time the toast list itself changes (i.e. every time any
+  // toast anywhere appears or auto-dismisses). Memoizing keeps the value
+  // reference stable for the lifetime of the provider.
+  const value = useMemo<ToastContextValue>(() => ({ showToast }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {mounted &&
         createPortal(

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, createContext, useCallback, useContext, useEffect, useState } from "react";
+import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import type { User } from "@/lib/types";
 
@@ -99,13 +99,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{ user, token, isLoading, authCheckError, retryAuthCheck, login, register, logout }}
-    >
-      {children}
-    </AuthContext.Provider>
+  // Every consumer of useAuth() re-renders whenever this object's identity
+  // changes. Without memoizing it, AuthProvider re-renders on every state
+  // change here recreate a brand-new object, which re-renders the entire
+  // subtree (Sidebar, Header, BottomNav, and every page) even when the
+  // fields a given consumer actually reads are unchanged.
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, token, isLoading, authCheckError, retryAuthCheck, login, register, logout }),
+    [user, token, isLoading, authCheckError, retryAuthCheck, login, register, logout]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

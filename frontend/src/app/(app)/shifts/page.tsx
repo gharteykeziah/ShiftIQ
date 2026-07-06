@@ -1,17 +1,20 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Plus, Pencil, Trash2, CalendarClock, Sparkles, Upload } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import type { ShiftOut, ShiftCategory, Day, OptimizeResult } from "@/lib/types";
+import { useAsync } from "@/hooks/useAsync";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12h } from "@/lib/utils";
 import { ImportScheduleModal } from "@/features/shifts/components/ImportScheduleModal";
 
 const DAYS: Day[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -27,15 +30,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   Personal: "#0891B2",
   Other: "#6B7280",
 };
-
-function formatTime12h(time: string): string {
-  const [hStr, mStr] = time.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr);
-  const ampm = h < 12 ? "AM" : "PM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-}
 
 interface ShiftFormState {
   originalId: number | null; // null = creating a new shift
@@ -67,10 +61,17 @@ export default function ShiftsPage() {
   const { token } = useAuth();
   const { showToast } = useToast();
 
-  const [shifts, setShifts] = useState<ShiftOut[] | null>(null);
   const [dayFilter, setDayFilter] = useState<Day | "All">("All");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: shifts,
+    isLoading,
+    error,
+    reload: load,
+  } = useAsync<ShiftOut[]>(
+    () => (token ? api.shifts.list(token, dayFilter === "All" ? undefined : dayFilter) : null),
+    [token, dayFilter],
+    "Something went wrong loading your shifts."
+  );
 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<ShiftFormState>(emptyForm());
@@ -87,24 +88,6 @@ export default function ShiftsPage() {
   const [optimizeResult, setOptimizeResult] = useState<OptimizeResult | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!token) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await api.shifts.list(token, dayFilter === "All" ? undefined : dayFilter);
-      setShifts(res);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong loading your shifts.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token, dayFilter]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   function openAddForm() {
     setForm(emptyForm());
@@ -350,34 +333,28 @@ export default function ShiftsPage() {
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-text">Category</label>
-              <select
-                value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as ShiftCategory }))}
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-text">Day</label>
-              <select
-                value={form.day}
-                onChange={(e) => setForm((f) => ({ ...f, day: e.target.value as Day }))}
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
-              >
-                {DAYS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Category"
+              value={form.category}
+              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as ShiftCategory }))}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+            <Select
+              label="Day"
+              value={form.day}
+              onChange={(e) => setForm((f) => ({ ...f, day: e.target.value as Day }))}
+            >
+              {DAYS.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -435,19 +412,14 @@ export default function ShiftsPage() {
       </Modal>
 
       {/* Delete confirmation */}
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete this shift?">
-        <p className="mb-4 text-sm text-muted">
-          Remove &quot;{deleteTarget?.title}&quot;? This can&apos;t be undone.
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>
-            Delete
-          </Button>
-        </div>
-      </Modal>
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete this shift?"
+        itemName={deleteTarget?.title ?? ""}
+        isDeleting={isDeleting}
+      />
 
       {/* Import schedule from CSV */}
       <ImportScheduleModal

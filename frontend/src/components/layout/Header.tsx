@@ -3,11 +3,7 @@
 import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { cn } from "@/lib/utils";
-
-function initials(email: string): string {
-  return email.slice(0, 2).toUpperCase();
-}
+import { cn, initials } from "@/lib/utils";
 
 /**
  * Document 05 §Header: orientation without distraction. Logo left, nothing

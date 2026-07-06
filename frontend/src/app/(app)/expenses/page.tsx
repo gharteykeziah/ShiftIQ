@@ -1,13 +1,16 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Plus, Pencil, Trash2, Receipt } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import type { ExpenseOut, Frequency } from "@/lib/types";
+import { useAsync } from "@/hooks/useAsync";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
@@ -35,9 +38,16 @@ export default function ExpensesPage() {
   const { token } = useAuth();
   const { showToast } = useToast();
 
-  const [expenses, setExpenses] = useState<ExpenseOut[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: expenses,
+    isLoading,
+    error,
+    reload: load,
+  } = useAsync<ExpenseOut[]>(
+    () => (token ? api.expenses.list(token) : null),
+    [token],
+    "Something went wrong loading your expenses."
+  );
 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<ExpenseFormState>(emptyForm());
@@ -46,24 +56,6 @@ export default function ExpensesPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ExpenseOut | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!token) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await api.expenses.list(token);
-      setExpenses(res);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong loading your expenses.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   function openAddForm() {
     setForm(emptyForm());
@@ -264,20 +256,17 @@ export default function ExpensesPage() {
             onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
             required
           />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-text">Frequency</label>
-            <select
-              value={form.frequency}
-              onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value as Frequency }))}
-              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
-            >
-              {FREQUENCIES.map((freq) => (
-                <option key={freq} value={freq}>
-                  {freq}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Frequency"
+            value={form.frequency}
+            onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value as Frequency }))}
+          >
+            {FREQUENCIES.map((freq) => (
+              <option key={freq} value={freq}>
+                {freq}
+              </option>
+            ))}
+          </Select>
           {formError && <p className="text-sm text-danger">{formError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>
@@ -290,19 +279,14 @@ export default function ExpensesPage() {
         </form>
       </Modal>
 
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete this expense?">
-        <p className="mb-4 text-sm text-muted">
-          Remove &quot;{deleteTarget?.name}&quot;? This can&apos;t be undone.
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>
-            Delete
-          </Button>
-        </div>
-      </Modal>
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete this expense?"
+        itemName={deleteTarget?.name ?? ""}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }

@@ -4,14 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { cn, computeWeekStreak } from "@/lib/utils";
+import { cn, computeWeekStreak, initials } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { NAV_ITEMS } from "./nav-items";
-
-function initials(email: string): string {
-  return email.slice(0, 2).toUpperCase();
-}
 
 /**
  * Desktop navigation — Document 04 §Sidebar Structure: Logo → Primary Nav →

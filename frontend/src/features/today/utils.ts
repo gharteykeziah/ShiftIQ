@@ -1,4 +1,5 @@
 import type { ShiftOut } from "@/lib/types";
+import { formatTime12h } from "@/lib/utils";
 
 export type TimeOfDay = "morning" | "afternoon" | "evening";
 
@@ -10,15 +11,6 @@ export function timeOfDay(hour = new Date().getHours()): TimeOfDay {
 
 export function greetingWord(hour = new Date().getHours()): TimeOfDay {
   return timeOfDay(hour);
-}
-
-export function formatTime12h(time: string): string {
-  const [hStr, mStr] = time.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr);
-  const ampm = h < 12 ? "AM" : "PM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
 function toMinutes(time: string): number {
@@ -58,14 +50,6 @@ export function computeContextLine(todayShifts: ShiftOut[], now = new Date()): s
 export function displayName(email: string): string {
   const local = email.split("@")[0].split(/[._-]/)[0];
   return local.charAt(0).toUpperCase() + local.slice(1);
-}
-
-export function money(n: number): string {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export function moneyRounded(n: number): string {
-  return `$${Math.round(n).toLocaleString()}`;
 }
 
 export function todayIso(): string {

@@ -1,22 +1,19 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Target, TrendingUp, PiggyBank } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { api, ApiError } from "@/lib/api";
+import { api } from "@/lib/api";
 import type { StateSummary } from "@/lib/types";
+import { useAsync } from "@/hooks/useAsync";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { IconCard } from "@/components/ui/IconCard";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { cn } from "@/lib/utils";
+import { cn, money } from "@/lib/utils";
 
 type GoalTab = "weeks" | "progress" | "emergency";
-
-function money(n: number): string {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 // Mirrors FinancialState.weeks_to_goal() in financial_state.py.
 function weeksToGoal(goalAmount: number, balance: number, netWeeklyFlow: number): number | null {
@@ -36,9 +33,12 @@ function goalProgressPct(goalAmount: number, balance: number): number | null {
 export default function GoalsPage() {
   const { token } = useAuth();
 
-  const [state, setState] = useState<StateSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: state,
+    isLoading,
+    error,
+    reload: load,
+  } = useAsync<StateSummary>(() => (token ? api.state.get(token) : null), [token], "Something went wrong loading your data.");
 
   const [tab, setTab] = useState<GoalTab>("weeks");
 
@@ -49,24 +49,6 @@ export default function GoalsPage() {
   const [progressGoalInput, setProgressGoalInput] = useState("");
   const [progressResult, setProgressResult] = useState<number | null | undefined>(undefined);
   const [progressError, setProgressError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!token) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await api.state.get(token);
-      setState(res);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong loading your data.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   function handleWeeksSubmit(e: FormEvent) {
     e.preventDefault();

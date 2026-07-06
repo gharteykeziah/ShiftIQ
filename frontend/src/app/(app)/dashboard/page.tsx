@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pencil } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import type { StateSummary, InsightsResponse, ShiftOut, ExpenseOut } from "@/lib/types";
-import { hoursBetween } from "@/lib/utils";
+import { useAsync } from "@/hooks/useAsync";
+import { hoursBetween, money, moneyRounded, formatTime12h } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
@@ -26,11 +27,8 @@ import { MotivationalFooter } from "@/features/today/components/MotivationalFoot
 import {
   timeOfDay,
   greetingWord,
-  formatTime12h,
   computeContextLine,
   displayName,
-  money,
-  moneyRounded,
   todayIso,
   formatDateLabel,
   isSameWeek,
@@ -86,48 +84,58 @@ function weeksToTarget(shortfall: number, weeklyFlow: number): number | null {
   return Math.ceil(shortfall / weeklyFlow);
 }
 
+interface TodayData {
+  state: StateSummary;
+  insights: InsightsResponse;
+  shifts: ShiftOut[];
+  expenses: ExpenseOut[];
+}
+
+// Stable fallback references for the pre-load state. `data?.shifts ?? []`
+// would create a brand-new array every render while data is still null,
+// which defeats the useMemo hooks below that depend on `shifts`/`expenses`
+// (each would recompute on every render instead of only when the data
+// actually changes) — the same failure mode as an inline object literal in
+// a context value, just at the hook-dependency level instead of context.
+const EMPTY_SHIFTS: ShiftOut[] = [];
+const EMPTY_EXPENSES: ExpenseOut[] = [];
+
 export default function TodayPage() {
   const { user, token } = useAuth();
   const { showToast } = useToast();
 
-  const [state, setState] = useState<StateSummary | null>(null);
-  const [insights, setInsights] = useState<InsightsResponse | null>(null);
-  const [shifts, setShifts] = useState<ShiftOut[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseOut[]>([]);
+  const {
+    data,
+    isLoading,
+    error,
+    reload: load,
+  } = useAsync<TodayData>(
+    () =>
+      token
+        ? Promise.all([
+            api.state.get(token),
+            api.insights(token),
+            api.shifts.list(token),
+            api.expenses.list(token),
+          ]).then(([state, insights, shifts, expenses]) => ({ state, insights, shifts, expenses }))
+        : null,
+    [token],
+    "We couldn't load today's plan."
+  );
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Mirrors the previous per-field useState defaults exactly: shifts/expenses
+  // are [] (not undefined) even before the first load resolves, since the
+  // useMemo hooks below run on every render, including the first one, before
+  // the isLoading check further down can short-circuit.
+  const state = data?.state ?? null;
+  const insights = data?.insights ?? null;
+  const shifts = data?.shifts ?? EMPTY_SHIFTS;
+  const expenses = data?.expenses ?? EMPTY_EXPENSES;
 
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [balanceInput, setBalanceInput] = useState("");
   const [isSavingBalance, setIsSavingBalance] = useState(false);
   const [balanceError, setBalanceError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!token) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [stateRes, insightsRes, shiftsRes, expensesRes] = await Promise.all([
-        api.state.get(token),
-        api.insights(token),
-        api.shifts.list(token),
-        api.expenses.list(token),
-      ]);
-      setState(stateRes);
-      setInsights(insightsRes);
-      setShifts(shiftsRes);
-      setExpenses(expensesRes);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "We couldn't load today's plan.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   function openBalanceModal() {
     setBalanceInput(state ? String(state.balance) : "");
