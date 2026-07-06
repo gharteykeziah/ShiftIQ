@@ -971,7 +971,7 @@ class SchedulePage(tk.Frame):
         """
         Look up the hourly rate for job_name.  Uses canonical name comparison
         so 'admission', 'Admissions', and 'admissions' all share the same rate.
-        Checks: events table, then fre_jobs (schedule_core).
+        Checks: events table, then schedule_jobs (schedule_core).
         """
         canon = _canon(job_name)
 
@@ -980,7 +980,7 @@ class SchedulePage(tk.Frame):
             if ev.category == "Work" and ev.hourly_rate > 0 and _canon(ev.title) == canon:
                 return ev.hourly_rate
 
-        # Source 2: fre_jobs (schedule_core)
+        # Source 2: schedule_jobs (schedule_core)
         try:
             from schedule_core import Scheduler
             for job in Scheduler().get_jobs():
@@ -1352,7 +1352,7 @@ class SchedulePage(tk.Frame):
                         seen_keys.add(key)
                         existing_job_names.append(ev0.title.strip())
 
-            # ── Write directly to events table (skip fre_jobs/fre_shifts) ───
+            # ── Write directly to events table (skip schedule_jobs/schedule_shifts) ───
             saved_shifts = []
             skipped = []
             for ps in parsed.shifts:

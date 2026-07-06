@@ -27,8 +27,8 @@ TIME RULES
 
 INTEGRATION
 ───────────
-    Reads job IDs from existing fre_jobs table.
-    Inserts into existing fre_shifts table.
+    Reads job IDs from existing schedule_jobs table.
+    Inserts into existing schedule_shifts table.
     Runs conflict detection before EVERY insert.
     Does NOT touch the database schema.
 
@@ -458,13 +458,13 @@ def import_schedule_text(text: str, db_path: str = _DB_PATH) -> ImportResult:
     Parse a schedule text block, then import valid shifts into the database.
 
     For each parsed shift the function:
-      1. Looks up the job name in fre_jobs  → error if not found
-      2. Checks for exact duplicates        → warning + skip if duplicate
-      3. Runs conflict detection            → conflict message + skip if clash
+      1. Looks up the job name in schedule_jobs  → error if not found
+      2. Checks for exact duplicates             → warning + skip if duplicate
+      3. Runs conflict detection                 → conflict message + skip if clash
          (checks both the existing database AND the other shifts being
           imported in the same batch, so two pasted shifts can't silently
           collide with each other)
-      4. Inserts clean shifts into fre_shifts
+      4. Inserts clean shifts into schedule_shifts
 
     The program NEVER crashes regardless of what is pasted.
 

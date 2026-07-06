@@ -332,38 +332,97 @@ class _Database:
     def _init_tables(self) -> None:
         """Create tables if they don't exist.  Safe to call on every startup."""
         with self._connect() as conn:
+            self._migrate_legacy_table_names(conn)
             conn.execute("""
-                CREATE TABLE IF NOT EXISTS fre_jobs (
+                CREATE TABLE IF NOT EXISTS schedule_jobs (
                     id          INTEGER PRIMARY KEY AUTOINCREMENT,
                     job_name    TEXT    NOT NULL UNIQUE COLLATE NOCASE,
                     hourly_rate REAL    NOT NULL DEFAULT 0.0
                 )
             """)
             conn.execute("""
-                CREATE TABLE IF NOT EXISTS fre_shifts (
+                CREATE TABLE IF NOT EXISTS schedule_shifts (
                     id         INTEGER PRIMARY KEY AUTOINCREMENT,
                     job_id     INTEGER NOT NULL,
                     day        TEXT    NOT NULL,
                     start_time TEXT    NOT NULL,
                     end_time   TEXT    NOT NULL,
-                    FOREIGN KEY (job_id) REFERENCES fre_jobs(id)
+                    FOREIGN KEY (job_id) REFERENCES schedule_jobs(id)
                         ON DELETE CASCADE
                 )
             """)
             conn.commit()
+
+    @staticmethod
+    def _migrate_legacy_table_names(conn) -> None:
+        """
+        One-time schema migration: this module's tables were originally named
+        fre_jobs / fre_shifts, left over from before the app was renamed to
+        ShiftIQ. They're renamed here to schedule_jobs / schedule_shifts.
+
+        Runs automatically on every startup and is a no-op once the rename
+        has happened (or on a fresh install that never had the old tables).
+        Data is copied by explicit id, so all rows, ids, and the job_id
+        foreign key relationship are preserved exactly. The old tables are
+        dropped only after the copy succeeds.
+        """
+        existing = {
+            row[0] for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        legacy_present = "fre_jobs" in existing or "fre_shifts" in existing
+        already_migrated = "schedule_jobs" in existing and "schedule_shifts" in existing
+        if not legacy_present or already_migrated:
+            return
+
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_jobs (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_name    TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+                hourly_rate REAL    NOT NULL DEFAULT 0.0
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_shifts (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id     INTEGER NOT NULL,
+                day        TEXT    NOT NULL,
+                start_time TEXT    NOT NULL,
+                end_time   TEXT    NOT NULL,
+                FOREIGN KEY (job_id) REFERENCES schedule_jobs(id)
+                    ON DELETE CASCADE
+            )
+        """)
+        if "fre_jobs" in existing:
+            conn.execute("""
+                INSERT INTO schedule_jobs (id, job_name, hourly_rate)
+                SELECT id, job_name, hourly_rate FROM fre_jobs
+            """)
+        if "fre_shifts" in existing:
+            conn.execute("""
+                INSERT INTO schedule_shifts (id, job_id, day, start_time, end_time)
+                SELECT id, job_id, day, start_time, end_time FROM fre_shifts
+            """)
+        # Drop child table (has the FK) before the parent.
+        conn.execute("DROP TABLE IF EXISTS fre_shifts")
+        conn.execute("DROP TABLE IF EXISTS fre_jobs")
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.commit()
 
     # ── Job operations ────────────────────────────────────────────────────────
 
     def upsert_job(self, name: str, rate: float) -> Job:
         with self._connect() as conn:
             conn.execute("""
-                INSERT INTO fre_jobs (job_name, hourly_rate) VALUES (?, ?)
+                INSERT INTO schedule_jobs (job_name, hourly_rate) VALUES (?, ?)
                 ON CONFLICT(job_name)
                 DO UPDATE SET hourly_rate = excluded.hourly_rate
             """, (name, rate))
             conn.commit()
             row = conn.execute(
-                "SELECT id, job_name, hourly_rate FROM fre_jobs "
+                "SELECT id, job_name, hourly_rate FROM schedule_jobs "
                 "WHERE job_name = ? COLLATE NOCASE", (name,)
             ).fetchone()
         return Job(id=row[0], name=row[1], hourly_rate=row[2])
@@ -371,7 +430,7 @@ class _Database:
     def get_job_by_name(self, name: str) -> Job | None:
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT id, job_name, hourly_rate FROM fre_jobs "
+                "SELECT id, job_name, hourly_rate FROM schedule_jobs "
                 "WHERE job_name = ? COLLATE NOCASE", (name,)
             ).fetchone()
         if not row:
@@ -381,7 +440,7 @@ class _Database:
     def get_all_jobs(self) -> list[Job]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT id, job_name, hourly_rate FROM fre_jobs "
+                "SELECT id, job_name, hourly_rate FROM schedule_jobs "
                 "ORDER BY job_name"
             ).fetchall()
         return [Job(id=r[0], name=r[1], hourly_rate=r[2]) for r in rows]
@@ -390,7 +449,7 @@ class _Database:
         """Returns True if a row was deleted."""
         with self._connect() as conn:
             cur = conn.execute(
-                "DELETE FROM fre_jobs WHERE job_name = ? COLLATE NOCASE",
+                "DELETE FROM schedule_jobs WHERE job_name = ? COLLATE NOCASE",
                 (name,)
             )
             conn.commit()
@@ -402,7 +461,7 @@ class _Database:
                      start: str, end: str) -> int:
         with self._connect() as conn:
             cur = conn.execute(
-                "INSERT INTO fre_shifts (job_id, day, start_time, end_time) "
+                "INSERT INTO schedule_shifts (job_id, day, start_time, end_time) "
                 "VALUES (?, ?, ?, ?)",
                 (job_id, day, start, end),
             )
@@ -414,8 +473,8 @@ class _Database:
         sql = """
             SELECT s.id, s.job_id, j.job_name, j.hourly_rate,
                    s.day, s.start_time, s.end_time
-            FROM fre_shifts s
-            JOIN fre_jobs j ON s.job_id = j.id
+            FROM schedule_shifts s
+            JOIN schedule_jobs j ON s.job_id = j.id
         """
         params: tuple = ()
         if day:
@@ -435,7 +494,7 @@ class _Database:
     def delete_shift(self, shift_id: int) -> bool:
         with self._connect() as conn:
             cur = conn.execute(
-                "DELETE FROM fre_shifts WHERE id = ?", (shift_id,)
+                "DELETE FROM schedule_shifts WHERE id = ?", (shift_id,)
             )
             conn.commit()
         return cur.rowcount > 0
@@ -443,7 +502,7 @@ class _Database:
     def clear_shifts(self) -> None:
         """Delete all shifts (jobs are preserved)."""
         with self._connect() as conn:
-            conn.execute("DELETE FROM fre_shifts")
+            conn.execute("DELETE FROM schedule_shifts")
             conn.commit()
 
 
