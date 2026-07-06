@@ -310,6 +310,15 @@ export default function TodayPage() {
         secondaryLabel="See why"
         secondaryHref="/goals"
         timeOfDay={timeOfDay()}
+        recommendationTitle={decisionRecommendation}
+        recommendationOutcome={decisionOutcome}
+        recommendationImpact={decisionImpact}
+        recommendationHref={dayPattern && daysSooner > 0 ? "/shifts" : "/goals"}
+        goalName="Emergency Fund"
+        goalCurrent={moneyRounded(Math.min(state.balance, target))}
+        goalTarget={moneyRounded(target)}
+        weeklyLabel="Expected this week"
+        weeklyAmount={moneyRounded(state.weekly_income)}
       />
 
       <DecisionBar

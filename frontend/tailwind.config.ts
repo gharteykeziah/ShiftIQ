@@ -78,6 +78,10 @@ const config: Config = {
         soft: "0 1px 3px rgba(38, 35, 31, 0.05)",
         card: "0 10px 30px rgba(38, 35, 31, 0.08)",
         lift: "0 16px 40px rgba(38, 35, 31, 0.10)",
+        // "Material Surface" hero card — two soft layers instead of one
+        // dramatic shadow, so the front recommendation card reads as a
+        // physical object with real weight rather than a flat panel.
+        elevated: "0 2px 6px rgba(38, 35, 31, 0.05), 0 24px 48px -12px rgba(38, 35, 31, 0.14)",
       },
       spacing: {
         13: "52px", // occasional editorial spacing between the 48/64 steps

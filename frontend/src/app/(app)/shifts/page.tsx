@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, CalendarClock, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, CalendarClock, Sparkles, Upload } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import type { ShiftOut, ShiftCategory, Day, OptimizeResult } from "@/lib/types";
@@ -12,6 +12,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
+import { ImportScheduleModal } from "@/features/shifts/components/ImportScheduleModal";
 
 const DAYS: Day[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const CATEGORIES: ShiftCategory[] = ["Work", "Class", "Study", "Meeting", "Personal", "Other"];
@@ -78,6 +79,8 @@ export default function ShiftsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ShiftOut | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [importOpen, setImportOpen] = useState(false);
 
   const [optimizeOpen, setOptimizeOpen] = useState(false);
   const [maxHours, setMaxHours] = useState("20");
@@ -243,7 +246,11 @@ export default function ShiftsPage() {
     <div className="mx-auto min-w-0 max-w-4xl space-y-6 p-6 sm:p-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-text">Shifts</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" aria-hidden="true" />
+            Import schedule
+          </Button>
           <Button variant="outline" size="sm" onClick={openOptimizeModal}>
             <Sparkles className="h-4 w-4" aria-hidden="true" />
             Optimize
@@ -441,6 +448,17 @@ export default function ShiftsPage() {
           </Button>
         </div>
       </Modal>
+
+      {/* Import schedule from CSV */}
+      <ImportScheduleModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        token={token}
+        onImported={() => {
+          load();
+          showToast("Schedule imported.", "success");
+        }}
+      />
 
       {/* Optimizer */}
       <Modal open={optimizeOpen} onClose={() => setOptimizeOpen(false)} title="Optimize shifts">
