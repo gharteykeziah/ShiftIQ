@@ -1,163 +1,314 @@
 # ShiftIQ
 
-[![Tests](https://github.com/gharteykeziah-hub/shiftiq/actions/workflows/tests.yml/badge.svg)](https://github.com/gharteykeziah-hub/shiftiq/actions/workflows/tests.yml)
+**A decision-intelligence system for variable-income workers.**
+
+[![Tests](https://github.com/gharteykeziah/ShiftIQ/actions/workflows/tests.yml/badge.svg)](https://github.com/gharteykeziah/ShiftIQ/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![Next.js 14](https://img.shields.io/badge/next.js-14-black.svg)](frontend/package.json)
 
-**ShiftIQ is a financial planning app for students and gig workers whose income changes every week.**
+ShiftIQ applies optimization algorithms and probabilistic simulation to financial planning for variable-income workers. It models income as a function of scheduled work rather than a fixed salary, helping hourly employees, gig workers, and students make sharper financial decisions. The project combines dynamic programming, Monte Carlo simulation, and full-stack engineering (Python/FastAPI + Next.js) into a system that is deployed, authenticated, and tested end to end.
 
-If your paycheck depends on how many shifts you pick up, ShiftIQ answers the questions that standard budgeting apps can't:
+[Live Demo](https://shift-iq-beta.vercel.app) · [Documentation](docs/) · [API Reference](docs/API.md)
 
-- How much will I make this week if I take this shift?
-- What's my savings rate right now, and is it improving?
-- How long until I can afford that goal?
-- What's the riskiest part of my financial situation?
+## Highlights
 
-You enter your jobs, your schedule, and your expenses. ShiftIQ calculates your income, net flow, savings rate, risk score, and balance projection — and updates everything the moment anything changes.
+- Dynamic programming (0/1 knapsack) shift optimizer: exact, not greedy
+- Monte Carlo engine simulating 500+ possible financial futures per run
+- 5× faster simulations via NumPy vectorization (measured, see [`docs/Performance.md`](docs/Performance.md))
+- JWT authentication with per-user data isolation and rate limiting
+- 350+ automated tests across the engine and API (pytest + FastAPI `TestClient`)
+- Full-stack architecture: Python/FastAPI backend, Next.js frontend, Tkinter desktop client
+
+## Key Engineering Challenges
+
+ShiftIQ was built to work through several problems beyond CRUD:
+
+- Modeling variable income as a derived quantity instead of a fixed, manually entered number
+- Formulating shift selection as a constrained optimization problem (0/1 knapsack)
+- Forecasting financial uncertainty with Monte Carlo simulation instead of a single projection
+- Sharing one business-logic engine across a desktop client and a web client with zero duplication
+- Maintaining a single source of truth for every derived financial number, enforced architecturally
 
 ---
 
-## Who It's For
+## Table of Contents
 
-- **Campus workers** juggling two or three part-time jobs with variable hours
-- **Gig workers** (Uber, DoorDash, Instacart) tracking shift-by-shift earnings
-- **Students** who need to know whether picking up an extra Friday shift actually matters
-- **Anyone** whose income isn't a fixed number and whose budgeting app treats it like it is
+- [Why ShiftIQ Exists](#why-shiftiq-exists)
+- [What It Does](#what-it-does)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Demo](#demo)
+- [Installation](#installation)
+- [Local Development](#local-development)
+- [Environment Variables](#environment-variables)
+- [Backend Overview](#backend-overview)
+- [Frontend Overview](#frontend-overview)
+- [Algorithms](#algorithms)
+- [Testing](#testing)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Learn More](#learn-more)
+- [License](#license)
 
 ---
 
-## Quick Start
+## Why ShiftIQ Exists
+
+Most budgeting software assumes income is a fixed number that arrives on a fixed date. That assumption breaks for anyone paid by the hour, the gig, or the shift: a paycheck that varies by $200 week to week isn't a rounding error; it's the entire planning problem.
+
+ShiftIQ was built on the opposite assumption: income is a *function of the schedule*, not a static input. Entering a shift updates projected income automatically; removing one reduces it. There's no separate "enter your income" step to fall out of sync with reality.
+
+## What It Does
+
+ShiftIQ answers questions traditional budgeting apps can't:
+
+- Which combination of available shifts maximizes my weekly income?
+- How will dropping (or adding) a shift affect my savings rate?
+- At my current pace, how long until I hit a specific financial goal?
+- How risky is my financial situation, and what's driving that risk?
+
+## Features
+
+- **Schedule & free time:** finds every open block in the week and ranks it by earning potential
+- **Income tracking:** daily/weekly/biweekly/monthly pay normalized to one weekly figure
+- **Financial health:** net weekly flow, savings rate, and a 0–100 risk score, recalculated on every change
+- **Projections & scenarios:** balance forecasts at 4/8/12/26/52 weeks, plus side-by-side what-ifs
+- **Shift optimizer:** exact 0/1 knapsack solver for the highest-value shift combination under an hour budget
+- **Monte Carlo simulation:** 500 vectorized trajectories modeling income and expense variability
+- **Multi-user API:** JWT auth, per-user data isolation, rate limiting, SQLite or PostgreSQL
+
+## Project Structure
+
+The Python engine currently lives as flat modules at the repository root rather than in nested packages, a deliberate, if unusual, layout carried over from the project's original single-app structure:
+
+```
+ShiftIQ/
+│
+├── api.py, app.py, main.py        # transport layers: FastAPI, Tkinter shell, entry point
+├── financial_state.py             # single source of truth for all derived numbers
+├── optimizer.py, simulation.py    # decision engines (knapsack, Monte Carlo, what-if)
+├── shift_analytics.py,            # pure-function analytics layer
+│   time_engine.py
+├── database.py, db_connection.py, # persistence (SQLite / PostgreSQL)
+│   db_pg.py
+├── model.py, schedule_event.py    # data models
+├── page_*.py                      # desktop UI pages (Tkinter)
+│
+├── frontend/                      # Next.js 14 web app
+│   ├── src/app/                   # routes (App Router)
+│   ├── src/components/            # UI components
+│   ├── src/features/              # feature-scoped modules
+│   └── src/lib/                   # API client, types, utilities
+│
+├── docs/                          # architecture, algorithms, API reference
+├── archive/                       # superseded code, kept for reference
+├── scripts/                       # demo, benchmarks, migration utilities
+├── test_shiftiq.py, test_api.py   # test suites
+└── .github/workflows/             # CI
+```
+
+> A `backend/` package split (grouping the engine into `api/`, `services/`, `simulation/`, etc.) is a reasonable next refactor, but it's a real restructuring: it touches every import, the Dockerfile, and CI. It's tracked as a deliberate decision rather than done incidentally. See [Roadmap](#roadmap).
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A[Schedule] --> B[Analytics Layer]
+    B --> C[Financial State]
+    C --> D[Decision Engines]
+    D --> E[Desktop App - Tkinter]
+    D --> F[FastAPI]
+    F --> G[Next.js Frontend]
+```
+
+Both frontends (E and G, via F) are zero-logic transport layers over the same engine: every number either one displays comes from the same Python modules. Full component diagrams, data-flow maps, and the reasoning behind each design decision: [`docs/Architecture.md`](docs/Architecture.md) and [`docs/Engineering-Decisions.md`](docs/Engineering-Decisions.md).
+
+## Tech Stack
+
+**Languages**
+Python · TypeScript
+
+**Backend**
+FastAPI · Pydantic v2 · SQLAlchemy · Tkinter (desktop UI)
+
+**Frontend**
+Next.js 14 · React 18 · Tailwind CSS · Recharts
+
+**Data & Numerics**
+SQLite / PostgreSQL · NumPy · Matplotlib · ReportLab
+
+**Auth & Security**
+JWT (`python-jose`) · `bcrypt` · `slowapi` rate limiting
+
+**Infrastructure**
+Docker · GitHub Actions · Render / Railway / Heroku / AWS App Runner
+
+**Testing**
+pytest · FastAPI `TestClient`
+
+## Demo
+
+The web app is live at **[shift-iq-beta.vercel.app](https://shift-iq-beta.vercel.app)**.
+
+To run things locally instead:
 
 ```bash
-git clone https://github.com/gharteykeziah-hub/shiftiq.git
-cd shiftiq
+python3 scripts/demo.py                     # end-to-end demo, no GUI required
+python3 scripts/benchmark_monte_carlo.py    # vectorization benchmark
+```
+
+With the API running, interactive docs are at `http://127.0.0.1:8000/docs`.
+
+## Installation
+
+```bash
+git clone https://github.com/gharteykeziah/ShiftIQ.git
+cd ShiftIQ
 pip install -r requirements.txt
 python3 main.py
 ```
 
-> **macOS:** if the window appears blank on first launch, run `brew install python-tk`.
+> **macOS:** if the window is blank on first launch, run `brew install python-tk`.
 
-To also run the API service:
+## Local Development
 
 ```bash
+# Backend / desktop app
+pip install -r requirements.txt
+python3 main.py
+
+# API service
 pip install -r requirements-api.txt
-uvicorn api:app --reload
-# http://127.0.0.1:8000       -> browser frontend
-# http://127.0.0.1:8000/docs  -> Swagger docs
+uvicorn api:app --reload            # http://127.0.0.1:8000
+
+# Frontend
+cd frontend && npm install
+cp .env.local.example .env.local
+npm run dev                          # http://localhost:3000
+
+# Tests
+python3 -m pytest test_shiftiq.py test_api.py -v
+```
+
+Full setup, code style, and commit conventions: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Environment Variables
+
+| Variable | Where | Required | Description |
+|---|---|---|---|
+| `DATABASE_URL` | backend `.env` | No | PostgreSQL connection string; blank uses local SQLite |
+| `PORT` | backend `.env` | No | FastAPI port (default `8000`) |
+| `SECRET_KEY` | backend `.env` | Yes (API) | JWT signing key |
+| `CORS_ORIGINS` | backend `.env` | Yes (prod) | Allowed frontend origins; wildcard rejected at startup |
+| `NEXT_PUBLIC_API_URL` | `frontend/.env.local` | Yes | Base URL of the API the frontend calls |
+
+See [`.env.example`](.env.example) and [`frontend/.env.local.example`](frontend/.env.local.example).
+
+## Backend Overview
+
+Four layers, each with one responsibility:
+
+```
+Persistence  →  State  →  Analytics & Decision Engines  →  Transport (desktop app / API)
+```
+
+- **Persistence** (`database.py`, `db_connection.py`, `db_pg.py`): SQLite by default, PostgreSQL in production, one connection layer
+- **State** (`financial_state.py`): the only place financial math is computed; nothing else recomputes it
+- **Analytics & engines:** pure functions and decision engines (`shift_analytics.py`, `simulation.py`, `optimizer.py`, `scenario_engine.py`) with no DB or UI dependency
+- **Transport** (`app.py`, `api.py`): zero-logic layers that call the engine and render or serialize the result
+
+Full endpoint reference: [`docs/API.md`](docs/API.md) (or `/docs` on a running server).
+
+## Frontend Overview
+
+Next.js 14 App Router project in `frontend/`:
+
+- **Routes:** `dashboard`, `jobs`, `expenses`, `shifts`, `goals`, `simulation`, plus `login`/`register`/`onboarding`
+- **Design system:** centralized tokens for color, spacing, radius, shadows, typography
+- **Components:** organized by concern (`ui/`, `layout/`, `dashboard/`, `marketing/`)
+- **API client** (`src/lib/api.ts`): the only place the frontend talks to the backend
+
+The frontend holds no business logic. It renders whatever the API returns.
+
+## Algorithms
+
+### Dynamic Programming
+
+**Purpose:** maximize weekly earnings under an hour budget.
+**Why not greedy:** taking the highest-rate shifts first is provably suboptimal once a budget constrains which shifts can coexist.
+**Complexity:** O(n × capacity), capacity discretized to quarter-hour units.
+
+```python
+optimize_shift_selection(candidates, max_hours=10)
+# greedy picks the $20/hr shift alone:      $180
+# knapsack picks two lower-rate shifts:     $190  <- provably optimal
 ```
 
 ---
 
-## What It Does
+### Monte Carlo Simulation
 
-**Schedule & Free Time** — Enter your weekly shifts. ShiftIQ finds every free block in your day, ranks your jobs by hourly rate, and shows you the earning potential of each gap.
-
-**Income Tracking** — All income runs through a state layer that converts weekly, biweekly, and monthly pay into a single weekly figure. Every number on screen comes from the same calculation.
-
-**Financial Health** — Net weekly flow, savings rate, and a 0–100 risk score that accounts for expense ratios, balance, and income stability. Updated in real time.
-
-**Projections & Scenarios** — See your projected balance at 4, 8, 12, 26, and 52 weeks. Run side-by-side what-if scenarios: what happens if you get a 10% raise, or add $50/week in income?
-
-**Shift Optimizer** — Picking shifts greedily by hourly rate is provably suboptimal. The optimizer solves it exactly via dynamic programming (0/1 knapsack) so you always know the highest-value combination of shifts that fits your available hours.
-
-**Monte Carlo Simulation** — 500 independent projections of your financial life over a configurable horizon, sampling real-world variability (cut hours, extra shifts, unexpected expenses). Gives you a distribution over outcomes, not a single guess.
+**Purpose:** forecast financial uncertainty instead of a single projection.
+**Technique:** 500 trajectories sampling 10 stochastic weekly event types, vectorized with NumPy instead of nested Python loops.
+**Result:** a distribution over outcomes (best/worst case, percentiles, deficit probability), not a single guess.
 
 ---
+
+### Canonicalization Engine
+
+**Purpose:** normalize inconsistent job names (`"Admissions"`, `"admissions office"`) into one record.
+**Technique:** exact match, then canonical-key match, then fuzzy match (`difflib`, ≥0.82 similarity), then new canonical form.
+
+---
+
+Full write-ups: [`docs/Algorithms.md`](docs/Algorithms.md) · Benchmark methodology: [`docs/Performance.md`](docs/Performance.md)
 
 ## Testing
 
-166 pytest tests across 19 classes with no GUI instantiation and no live database. The test suite covers the knapsack optimizer including the greedy counterexample regression, Monte Carlo output stability, overnight shift edge cases, and database integrity.
+No GUI instantiation, no live database dependency:
 
 ```bash
-python3 -m pytest test_shiftiq.py -v
+python3 -m pytest test_shiftiq.py -v   # engine & business-logic tests
+python3 -m pytest test_api.py -v        # API tests: auth, XSS, data isolation
 ```
 
-GitHub Actions runs the full suite on every push across Python 3.10, 3.11, and 3.12.
+CI runs both suites on every push/PR across Python 3.10–3.12, plus an API import smoke test.
 
----
+## Roadmap
 
-## Architecture
+**Completed**
+- Dynamic programming shift optimizer
+- Monte Carlo simulation engine
+- JWT authentication and multi-user data isolation
+- FastAPI backend with PostgreSQL support
 
-The design enforces three constraints that hold across the entire codebase: the analytics layer is stateless and pure, the state layer is the single source of truth for all derived quantities, and both frontends are zero-logic transport layers over the same unmodified engine.
+**In Progress**
+- Next.js dashboard (feature parity with the desktop app)
+- Bulk schedule import (CSV / pasted text)
 
-```
-Schedule
-    ↓
-Analytics Layer       shift_impact() · efficiency ranking · income aggregation
-    ↓                 pure functions, no DB access, no UI imports
-State Layer           net flow · savings rate · risk score · balance projection
-    ↓                 single source of truth, no module recomputes these
-Decision Engines      what-if · scenario comparison · Monte Carlo (500 x 52 weeks)
-    ↓
-┌────────────────────────────┬─────────────────────────────┐
-│  Desktop UI                │  FastAPI + Pydantic v2      │
-│  Home · Schedule · More    │  Swagger docs at /docs      │
-└────────────────────────────┴─────────────────────────────┘
-```
+**Planned**
+- Mobile-responsive layout for the web app
+- Additional deployment guides (Railway, Fly.io)
 
-Because both frontends are thin transport layers, adding a third (CLI, React, mobile) requires zero changes to any engine module. Every number either frontend surfaces comes from the same code path.
+This reflects the current direction of the codebase, not a committed release schedule.
 
----
+## Contributing
 
-## Shift Optimizer
+Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, tests, and commit conventions.
 
-Selecting shifts greedily by hourly rate is provably suboptimal under an hour budget. A lower-rate short shift that leaves capacity for two others can produce greater total value than a higher-rate long shift that saturates the constraint. This is a 0/1 knapsack problem where items have weight (hours) and value (income) and fractional selection is not permitted.
+## Learn More
 
-`optimizer.py` solves it exactly via dynamic programming at O(n × capacity), discretized to quarter-hour units:
+| Doc | Covers |
+|---|---|
+| [`docs/Architecture.md`](docs/Architecture.md) | Component diagram, data-flow maps |
+| [`docs/Engineering-Decisions.md`](docs/Engineering-Decisions.md) | Why the system is built the way it is |
+| [`docs/Algorithms.md`](docs/Algorithms.md) | Optimizer, Monte Carlo, canonicalization in depth |
+| [`docs/Performance.md`](docs/Performance.md) | Vectorization benchmarks |
+| [`docs/API.md`](docs/API.md) | Full endpoint reference |
 
-```python
-candidates = [
-    ShiftCandidate("x", "Job X", hours=9, hourly_rate=20),  # $180, highest rate
-    ShiftCandidate("y", "Job Y", hours=5, hourly_rate=19),  # $95
-    ShiftCandidate("z", "Job Z", hours=5, hourly_rate=19),  # $95
-]
-result = optimize_shift_selection(candidates, max_hours=10)
-# greedy picks X alone:   $180
-# knapsack picks Y + Z:   $190  <- provably optimal
-```
+## License
 
----
-
-## Monte Carlo Simulation
-
-The simulation runs 500 independent trajectories over a configurable horizon, sampling 10 stochastic weekly events per run. The original implementation nested Python loops across runs, weeks, and events. The current version draws all random values in a single batched NumPy call and applies boolean masks across the full array at once:
-
-| Scenario | Pure Python | Vectorized | Speedup |
-|---|---|---|---|
-| 500 runs / 52 weeks | 27.7 ms | 5.5 ms | **5.0x** |
-| 500 runs / 12 weeks | 6.5 ms | 1.7 ms | 3.8x |
-| 5,000 runs / 52 weeks | 282.2 ms | 44.8 ms | **6.3x** |
-
-Reproduce: `python3 scripts/benchmark_monte_carlo.py`
-
----
-
-## Project Structure
-
-```
-├── financial_state.py      # State layer, single source of truth for all derived quantities
-├── shift_analytics.py      # Pure analytics: income aggregation, shift impact, efficiency
-├── optimizer.py            # 0/1 knapsack shift-selection, O(n x capacity)
-├── simulation.py           # NumPy-vectorized Monte Carlo + what-if simulator
-├── insight_engine.py       # Score interpretation and output labeling
-├── scenario_engine.py      # Side-by-side scenario projection
-├── database.py             # SQLite persistence, migration, backup, dedup
-├── model.py                # Core data models with frequency-aware rate conversion
-├── schedule_service.py     # Schedule to state sync
-├── api.py                  # FastAPI service, zero-logic transport over engine
-├── app.py                  # Desktop app shell, DI container, 3-item nav
-├── page_home.py            # Home: shift strip, tap-impact cards, optimizer
-├── exceptions.py           # Shared exception classes (ValidationError)
-├── config.py               # All constants in one place
-├── test_shiftiq.py         # 166 tests, no GUI or DB required
-└── scripts/
-    └── benchmark_monte_carlo.py
-```
-
----
-
-## Stack
-
-Python 3.10+, SQLite, NumPy, matplotlib, reportlab, pytest, FastAPI, Pydantic v2. No ORM. No frontend build step. The API layer is opt-in and adds zero dependencies to the desktop app.
-
-`render.yaml` is included for one-command deployment to Render, Railway, or Heroku.
+MIT. See [`LICENSE`](LICENSE).

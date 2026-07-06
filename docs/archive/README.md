@@ -8,7 +8,7 @@ in-repo references to that name have been updated here to ShiftIQ for
 clarity).
 
 These files are kept for reference only. They are **not** current
-documentation — for that, see the root `README.md`, `ARCHITECTURE.md`, and
+documentation — for that, see the root `README.md`, the `docs/` folder, and
 `CHANGELOG.md`.
 
 | File | What it is |
