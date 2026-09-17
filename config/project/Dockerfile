@@ -26,6 +26,8 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 # ── Copy application code ─────────────────────────────────────────────────────
 COPY backend/ ./backend/
 COPY scripts/ ./scripts/
+COPY routers/ ./routers/
+COPY services/ ./services/
 
 # ── Runtime config ────────────────────────────────────────────────────────────
 # PORT is set by AWS App Runner automatically — default to 8000 for local use
