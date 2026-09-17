@@ -1,0 +1,61 @@
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+
+# ── Environment variables (never commit real secrets) ─────────────────────────
+.env
+
+# ── Database files ────────────────────────────────────────────────────────────
+# Users create their own finance.db when they first run the app.
+# Backups are also personal and should not be committed.
+finance.db
+backup_*.db
+
+# ── Log files ─────────────────────────────────────────────────────────────────
+*.log
+activity.log
+app.log
+
+# ── Test cache ────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── macOS system files ────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Editor files ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.fuse_hidden*
+
+# ── Build / distribution ──────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+
+# ── Temporary Office files ────────────────────────────────────────────────────
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
+# ── Generated reports (personal exports, not source code) ────────────────────
+*.pdf
+FRE_Progress_Report.docx
+
+# ── Personal documents (not project source — never push these) ───────────────
+Keziah_Ghartey_Resume.docx
+*Resume*.docx
