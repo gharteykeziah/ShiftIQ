@@ -1,5 +1,3 @@
-# ShiftIQ
-
 ShiftIQ applies optimization algorithms, financial modeling, and scenario-based forecasting to help hourly, gig, and variable-income workers make better decisions about their time and money. It treats income as a function of scheduled work rather than a fixed salary, connecting shifts, expenses, savings goals, risk, and financial projections in one system. The project combines an exact shift-selection optimizer, financial health analytics, authenticated FastAPI services, a Next.js web interface, and a desktop client built around a shared Python decision engine.
 
-![ShiftIQ](config/resources/readme-hero.svg)
+![ShiftIQ diagram](config/resources/readme-hero.svg)
