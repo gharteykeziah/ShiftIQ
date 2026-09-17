@@ -29,8 +29,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from dotenv import load_dotenv
 load_dotenv()
 
-import db_pg
-from db_connection import get_connection, is_postgres
+import backend.core.db_pg as db_pg
+from backend.core.db_connection import get_connection, is_postgres
 
 SQLITE_FILE = os.getenv("SQLITE_FILE", "finance.db")
 

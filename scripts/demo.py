@@ -13,14 +13,14 @@ Run with:
 import sys, os, tempfile, atexit
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from model import Job, Expense
-from financial_state import FinancialState
-from simulation import simulate_whatif, run_monte_carlo
-from insight_engine import InsightEngine
+from backend.core.model import Job, Expense
+from backend.core.financial_state import FinancialState
+from backend.core.simulation import simulate_whatif, run_monte_carlo
+from backend.core.insight_engine import InsightEngine
 
 # ── Sample data (a typical campus gig worker) ─────────────────────────────────
 
-import database
+import backend.core.database as database
 _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _tmp.close()
 database.DB_NAME = _tmp.name   # isolated temp DB — never touches finance.db

@@ -20,7 +20,7 @@ import random
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from simulation import run_monte_carlo, _RANDOM_EVENTS  # noqa: E402
+from backend.core.simulation import run_monte_carlo, _RANDOM_EVENTS  # noqa: E402
 
 
 class _FakeState:

@@ -28,11 +28,11 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r config/project/requirements.txt
           pip install numpy
 
       - name: Install API dependencies
-        run: pip install -r requirements-api.txt
+        run: pip install -r config/project/requirements-api.txt
 
       - name: Secret scan (no hardcoded credentials)
         run: python scripts/check_secrets.py
@@ -40,7 +40,7 @@ jobs:
       - name: Run test suite
         env:
           SECRET_KEY: ci-test-secret-key-minimum-32-chars-long
-        run: python -m pytest test_shiftiq.py test_api.py -v
+        run: python -m pytest tests/test_shiftiq.py tests/test_api.py -v
 
   api-smoke-test:
     runs-on: ubuntu-latest
@@ -58,14 +58,14 @@ jobs:
       - name: Install API dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-api.txt
+          pip install -r config/project/requirements-api.txt
 
       - name: Import api.py (smoke test)
         env:
           SECRET_KEY: ci-test-secret-key-minimum-32-chars-long
-        run: python -c "import api; assert api.app; print('api.py imports cleanly')"
+        run: python -c "from backend.api.api import app; assert app; print('api.py imports cleanly')"
 
       - name: Run API tests
         env:
           SECRET_KEY: ci-test-secret-key-minimum-32-chars-long
-        run: python -m pytest test_api.py -v
+        run: python -m pytest tests/test_api.py -v

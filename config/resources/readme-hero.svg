@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title">
+  <title id="title">ShiftIQ schedule-driven financial intelligence</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101827"/><stop offset="1" stop-color="#1d4f63"/></linearGradient><linearGradient id="accent"><stop stop-color="#63e6be"/><stop offset="1" stop-color="#4dabf7"/></linearGradient></defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)"/><circle cx="1030" cy="80" r="190" fill="#63e6be" opacity=".12"/><circle cx="150" cy="590" r="260" fill="#4dabf7" opacity=".1"/>
+  <rect x="650" y="120" width="390" height="300" rx="24" fill="#0b1220" opacity=".78" stroke="#fff" stroke-opacity=".16"/><path d="M700 350 C760 300 785 330 835 260 S920 270 985 190" fill="none" stroke="url(#accent)" stroke-width="12" stroke-linecap="round"/><circle cx="700" cy="350" r="9" fill="#63e6be"/><circle cx="835" cy="260" r="9" fill="#63e6be"/><circle cx="985" cy="190" r="9" fill="#63e6be"/>
+  <text x="100" y="250" fill="#fff" font-family="Arial,sans-serif" font-size="72" font-weight="700">ShiftIQ</text><text x="104" y="315" fill="#b9d8e2" font-family="Arial,sans-serif" font-size="28">Plan smarter around the work you do.</text><text x="104" y="365" fill="#b9d8e2" font-family="Arial,sans-serif" font-size="24">Schedule-driven financial intelligence</text>
+</svg>

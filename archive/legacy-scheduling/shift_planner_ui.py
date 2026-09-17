@@ -19,7 +19,7 @@ from tkinter import ttk, messagebox
 # schedule_core.py lives at the repo root, two levels up from this archived file.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
-from schedule_core import (
+from backend.core.schedule_core import (
     Scheduler, ValidationError,
     FreeTimeMode, IncomeMode, OpportunityMode,
     _fmt12, _fmt_hours, _to_min,
